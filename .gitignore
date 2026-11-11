@@ -4,3 +4,9 @@ data/
 .claude/
 test/*
 !test/security.test.mjs
+.env.*
+!.env.example
+*.db
+*.db-*
+uploads/
+*.pem
