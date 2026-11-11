@@ -42,7 +42,18 @@ const show = (name) => {
   window.scrollTo(0, 0);
 };
 let depth = 0;
-window.addEventListener('hashchange', () => { depth++; route(); });
+window.addEventListener('hashchange', () => { depth++; go(); });
+document.documentElement.classList.toggle('vt', !!document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches);
+const go = () => {
+  if (!document.documentElement.classList.contains('vt')) return route();
+  const t = document.startViewTransition(() => route());
+  t.ready.catch(() => {}); t.finished.catch(() => {}); t.updateCallbackDone.catch(() => {});
+};
+document.addEventListener('pointerdown', (e) => {
+  const c = e.target.closest('.gcard'); if (!c) return;
+  $$('.gcard img').forEach((i) => (i.style.viewTransitionName = ''));
+  const img = $('img', c); if (img) img.style.viewTransitionName = 'photo';
+}, true);
 $('#back').onclick = () => (depth > 0 ? history.back() : (location.hash = 'home'));
 
 async function route() {
@@ -93,6 +104,7 @@ function openHome() {
   $('#hello').textContent = `Hi ${me.name}.`;
   api(`/api/pulse?country=${me.country}`).then((p) => { $('#pulseTxt').innerHTML = `<b>${p.forSale}</b> for sale · <b>${p.looking}</b> people looking in ${esc(meta.countries[me.country].name)}`; $('#pulse').hidden = false; }).catch(() => {});
   show('home');
+  api(`/api/listings?country=${me.country}`).then((l) => window.shelf?.('shelfHome', l)).catch(() => {});
 }
 async function refreshBadge() {
   if (!me) return;
@@ -311,7 +323,7 @@ async function openItem(lid) {
   let l;
   try { l = await api(`/api/listings/${lid}?userId=${me.id}`); }
   catch (err) { toast(err.message); location.hash = 'browse'; return; }
-  $('#iImg').src = l.photo || '';
+  $('#iImg').src = l.photo || ''; $('#iImg').style.viewTransitionName = 'photo';
   $('#iTitle').textContent = l.title;
   $('#iPrice').textContent = money(l.price, l.currency);
   const st = $('#iState');
@@ -424,6 +436,7 @@ async function openBoard() {
 // ---------- start ----------
 (async () => {
   meta = await api('/api/meta');
+  if (!me) api('/api/listings?country=DE').then((l) => window.shelf?.('shelfIn', l)).catch(() => {});
   $('#countrySel').innerHTML = '<option value="" disabled selected>Choose</option>' + Object.entries(meta.countries).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
   chips($('#sCats'), { onPick: checkSell });
   chips($('#wCats'), { onPick: checkBuy });

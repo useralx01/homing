@@ -398,4 +398,70 @@ body.locked{overflow:hidden}
   .item>:not(.photo){grid-column:2}
   .item .i-top{margin-top:0}
 }
+/* ===== v6: the shelf + motion ===== */
+/* the shelf: real 3D slabs of what is for sale */
+.stage{position:relative;height:300px;margin:0 calc(var(--g) * -1);touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.stage canvas{position:absolute;inset:0;width:100%!important;height:100%!important;cursor:grab;display:block}
+.stage canvas:active{cursor:grabbing}
+.stage .tag{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);display:flex;align-items:baseline;gap:10px;max-width:calc(100% - 48px);white-space:nowrap;text-decoration:none;opacity:0}
+.stage .tag.in{animation:tagin .5s var(--e) both}
+@keyframes tagin{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+.stage .tag b{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.015em}
+.stage .tag span{font-family:"Inter Tight",Inter,sans-serif;font-weight:760;font-size:17px;color:var(--blue);letter-spacing:-.03em}
+.stage.no-gl{display:none}
+
+/* sign in opens on the shelf */
+.signin{padding-top:clamp(8px,3vh,40px)}
+.signin .stage{width:calc(100% + var(--g) * 2);height:min(40vh,320px);margin-bottom:14px}
+
+/* home: shelf sits under the three, with a quiet heading */
+.near{display:flex;align-items:baseline;justify-content:space-between;margin-top:34px}
+.near h3{margin:0}
+.near a{font-size:15px;font-weight:600;color:var(--blue);text-decoration:none}
+.home .stage{height:280px;margin-top:2px}
+
+/* browse: the photo is the card; glass is a slim crisp strip, not a fog */
+.gcard{border-radius:22px;box-shadow:0 0 0 1px rgba(10,12,30,.05),0 16px 30px -24px rgba(10,20,60,.6)}
+.gcard img{transition:transform .5s var(--e)}
+.gcard:active img{transform:scale(1.03)}
+.glass{left:6px;right:6px;bottom:6px;gap:0;padding:9px 12px 10px;border-radius:16px;
+  background:rgba(255,255,255,.62);
+  backdrop-filter:blur(14px) saturate(1.3) brightness(1.06);-webkit-backdrop-filter:blur(14px) saturate(1.3) brightness(1.06);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 0 0 1px rgba(255,255,255,.5),0 8px 18px -12px rgba(11,40,110,.35)}
+.glass b{font-size:13.5px;font-weight:550;color:#2a2b33;-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis;display:block}
+.glass span{font-family:"Inter Tight",Inter,sans-serif;font-size:18px;font-weight:760;letter-spacing:-.035em;margin-top:1px}
+
+/* sell: a camera viewfinder, not a dashed upload box */
+.shot{background:radial-gradient(60% 55% at 50% 42%,rgba(59,130,255,.16),transparent 70%),linear-gradient(180deg,#f3f6fd,#eef2fb)}
+.shot::after{inset:18px;border:0;border-radius:0;
+  background:
+    linear-gradient(var(--blue),var(--blue)) 0 0/26px 2.5px,linear-gradient(var(--blue),var(--blue)) 0 0/2.5px 26px,
+    linear-gradient(var(--blue),var(--blue)) 100% 0/26px 2.5px,linear-gradient(var(--blue),var(--blue)) 100% 0/2.5px 26px,
+    linear-gradient(var(--blue),var(--blue)) 0 100%/26px 2.5px,linear-gradient(var(--blue),var(--blue)) 0 100%/2.5px 26px,
+    linear-gradient(var(--blue),var(--blue)) 100% 100%/26px 2.5px,linear-gradient(var(--blue),var(--blue)) 100% 100%/2.5px 26px;
+  background-repeat:no-repeat;opacity:.55}
+.shot-empty img{animation:float 4s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-6px)}}
+
+/* item on a phone: photo edge to edge, the details slide over it */
+@media (max-width:1099px){
+  .item{padding-top:0}
+  .item .photo{margin:0 calc(var(--g) * -1);border-radius:0;aspect-ratio:4/5;max-height:62vh;box-shadow:none}
+  .item .i-top{position:relative;margin:-28px calc(var(--g) * -1) 0;padding:24px var(--g) 0;background:var(--bg);border-radius:28px 28px 0 0}
+}
+.item .price{color:var(--blue)}
+
+/* one motion for every screen change; the tapped photo flies into the item */
+::view-transition-old(root){animation:vt-out .22s var(--ui) both}
+::view-transition-new(root){animation:vt-in .42s var(--e) both}
+@keyframes vt-out{to{opacity:0;transform:scale(.985)}}
+@keyframes vt-in{from{opacity:0;transform:translateY(14px)}}
+::view-transition-group(photo){animation-duration:.5s;animation-timing-function:var(--e)}
+::view-transition-image-pair(photo){isolation:isolate}
+/* the route already animates; don't double it inside a transition */
+html.vt .screen,html.vt .screen>*{animation:none}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;animation-delay:0s!important}}
+@media (max-width:1099px){ .big{min-height:128px;padding:20px 22px 18px} .big .lbl{padding-bottom:40px} .big .go{bottom:18px;left:22px} .three{gap:12px;margin-top:22px} .near{margin-top:28px} .home .stage{height:228px} }
+.glass{padding:7px 11px 8px;border-radius:14px;background:rgba(255,255,255,.7)}
+.glass b{font-size:12.5px}
+.glass span{font-size:16.5px}
