@@ -598,3 +598,52 @@ input,textarea,select{font-size:17px!important;caret-color:var(--blue)}
   .item:has(.buybar:not([hidden])){padding-bottom:0}
   .item .i-head{margin-top:0}
 }
+
+/* ===== v10: finish pass — one grid on desktop, calmer phone details ===== */
+/* phone: tighter rhythm, one small-label style */
+.near h3{font-size:20px;letter-spacing:-.03em}
+.stage .tag{background:rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(16,40,110,.08),0 8px 20px -12px rgba(16,40,110,.35);padding:7px 14px}
+.signin .sub{font-size:17px}
+.pp-in .fine{color:var(--muted);opacity:.85}
+.pp-in .textbtn{color:var(--blue);font-weight:600}
+.browse-head h2,.sell>h2,.buy>h2,.board>h2,.me h2{font-size:36px}
+/* desktop: header and every screen share one 1080 grid; reading screens sit centred at 640 */
+@media (min-width:1100px){
+  :root{--wide:1080px}
+  .top{padding-left:max(10px,calc(50vw - var(--wide) / 2 + var(--g) - 8px));padding-right:max(10px,calc(50vw - var(--wide) / 2 + var(--g) - 8px));min-height:68px}
+  main{max-width:var(--wide)}
+  main:has(.item:not([hidden])){max-width:var(--wide)}
+  .screen:not(.home):not(.browse):not(.item):not(.signin){max-width:640px;margin-left:auto;margin-right:auto}
+  .item{column-gap:64px;grid-template-columns:1.1fr 1fr}
+  .item .i-head h2{font-size:34px}
+  .item .i-head .price{font-size:30px}
+  /* home: greeting big, the three side by side */
+  .home{padding-top:40px}
+  .home h1{font-size:72px;letter-spacing:-.05em}
+  .home .pulse{font-size:16px;margin-top:16px}
+  .three{grid-template-columns:repeat(3,1fr);gap:18px;margin-top:40px}
+  .big{min-height:240px;padding:28px 28px 26px}
+  .big .lbl{max-width:none;padding-bottom:0}
+  .big b{font-size:44px}
+  .big small{font-size:16px}
+  .big .ren{top:auto;bottom:22px;right:24px;width:96px;height:96px;transform:rotate(-6deg)}
+  .three .big:nth-child(2) .ren{transform:rotate(4deg)}
+  .big .go{left:28px;bottom:26px;width:40px;height:40px}
+  .near{margin-top:56px}
+  .near h3{font-size:24px}
+  .home .stage{height:380px}
+  .links{margin-top:28px}
+  .links a{font-size:16px;padding:22px 4px}
+  /* browse: a real shop grid */
+  .browse{padding-top:40px}
+  .browse-head h2{font-size:48px}
+  .browse .grid{grid-template-columns:repeat(4,1fr);gap:18px;margin-top:22px}
+  .browse .chips.scroll{margin-left:0;margin-right:0;padding-left:0;-webkit-mask-image:none;mask-image:none;flex-wrap:wrap}
+  .browse .chips.scroll::after{display:none}
+  .user .grid,.me .grid{grid-template-columns:repeat(3,1fr)}
+  /* sign in: the shelf gets room */
+  .signin{padding-top:24px}
+  .signin .stage{height:440px;width:100%;margin:0 0 18px}
+  .signin h1{font-size:64px}
+  .signin .sub{font-size:19px}
+}
