@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import QRCode from 'qrcode';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DATA = path.join(ROOT, 'data');
@@ -24,6 +25,9 @@ const PP_ID = process.env.PAYPAL_CLIENT_ID || '';
 const PP_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
 const SANDBOX = process.env.PAYPAL_ENV !== 'live';
 const PP_API = SANDBOX ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+const PP_WEB = SANDBOX ? 'https://www.sandbox.paypal.com' : 'https://www.paypal.com';
+// links that come back to us use the address the person opened (localhost on the PC, the LAN address on a phone)
+const origin = (q) => process.env.BASE_URL ? BASE_URL : `${q.protocol}://${q.get('host')}`;
 
 // Everything is locked to one country: no shipping across borders.
 const COUNTRIES = {
@@ -154,16 +158,18 @@ function purchaseUnit(l, buyer) {
   };
   const seller = userOf(l.sellerId);
   if (seller?.paypal) unit.payee = { email_address: seller.paypal };
+  if (buyer.address) unit.shipping = { name: { full_name: buyer.fullName || buyer.name }, address: ppAddress(buyer.address) };
   return unit;
 }
-async function paypalCheckout(l, buyer) {
+const ppAddress = (a) => ({ address_line_1: a.line1, ...(a.line2 ? { address_line_2: a.line2 } : {}), admin_area_2: a.city, postal_code: a.zip, country_code: a.country });
+async function paypalCheckout(l, buyer, base) {
   const order = await pp('POST', '/v2/checkout/orders', {
     intent: 'CAPTURE',
     purchase_units: [purchaseUnit(l, buyer)],
     payment_source: { paypal: { experience_context: {
-      brand_name: 'Homing', user_action: 'PAY_NOW', shipping_preference: 'NO_SHIPPING',
-      return_url: `${BASE_URL}/paypal/return?listing=${l.id}&buyer=${buyer.id}`,
-      cancel_url: `${BASE_URL}/?item=${l.id}`,
+      brand_name: 'Homing', user_action: 'PAY_NOW', shipping_preference: buyer.address ? 'SET_PROVIDED_ADDRESS' : 'GET_FROM_FILE',
+      return_url: `${base}/paypal/return?listing=${l.id}&buyer=${buyer.id}`,
+      cancel_url: `${base}/?item=${l.id}`,
     } } },
   });
   return { orderId: order.id, payUrl: order.links.find((l2) => l2.rel === 'payer-action')?.href };
@@ -190,11 +196,60 @@ async function captureOrder(orderId) {
 function markSold(l, buyer, cap, via) {
   const c = cap.purchase_units?.[0]?.payments?.captures?.[0];
   l.status = 'sold'; l.buyerId = buyer.id; l.soldAt = Date.now();
-  l.capture = { id: c?.id || cap.id, status: c?.status || cap.status, amount: c?.amount, via };
+  l.capture = { id: c?.id || cap.id, orderId: cap.id, status: c?.status || cap.status, amount: c?.amount, via };
   l.reviews = {};
+  // where it goes: the address PayPal confirmed for this payment, else the buyer's PayPal profile
+  const sh = cap.purchase_units?.[0]?.shipping;
+  const a = sh?.address;
+  l.ship = {
+    name: sh?.name?.full_name || buyer.fullName || buyer.name,
+    ...(a ? { line1: a.address_line_1 || '', line2: a.address_line_2 || '', city: a.admin_area_2 || '', zip: a.postal_code || '', country: a.country_code || l.country } : buyer.address || {}),
+    code: 'HM-' + crypto.randomBytes(3).toString('hex').toUpperCase(),
+  };
+  shipNotes(l).then((n) => { l.ship.notes = n; persist(); }).catch(() => {});
   // anyone else who was matched to it simply sees it's gone; the buyer's want is done
   for (const w of wants) if (w.userId === buyer.id && w.status === 'open' && w.matches.some((m) => m.listingId === l.id)) w.status = 'done';
   persist();
+}
+
+// AI writes short packing notes for this exact item
+async function shipNotes(l) {
+  try {
+    const r = await gemini([], `Someone sold "${l.title}" (${l.category}) and must post it in ${COUNTRIES[l.country]?.name}. Description: "${l.description.slice(0, 400)}".
+Return JSON only: {"box":"which parcel size and why, max 8 words","steps":["3 short packing steps, max 9 words each"]}`);
+    if (r?.box && Array.isArray(r.steps)) return { box: String(r.box), steps: r.steps.slice(0, 3).map(String) };
+  } catch {}
+  return { box: 'A box that fits it with a little room', steps: ['Wrap it in paper or bubble wrap', 'Fill the gaps so nothing moves', 'Write the code on the box'] };
+}
+
+// Post offices near the seller, from OpenStreetMap
+const geoCache = new Map();
+const UA = { 'user-agent': 'Homing-marketplace-demo/1.0', accept: 'application/json' };
+async function geocode(a) {
+  const k = [a.line1, a.zip, a.city, a.country].join('|');
+  if (geoCache.has(k)) return geoCache.get(k);
+  const u = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&' + new URLSearchParams({ street: a.line1 || '', postalcode: a.zip || '', city: a.city || '', countrycodes: (a.country || '').toLowerCase() });
+  let j = await (await fetch(u, { headers: UA, signal: AbortSignal.timeout(15000) })).json().catch(() => []);
+  if (!j[0]) j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&' + new URLSearchParams({ q: [a.zip, a.city, a.country].join(' ') }), { headers: UA, signal: AbortSignal.timeout(15000) })).json().catch(() => []);
+  const p = j[0] ? { lat: +j[0].lat, lon: +j[0].lon } : null;
+  geoCache.set(k, p); return p;
+}
+const km = (a, b) => { const R = 6371, r = Math.PI / 180, dl = (b.lat - a.lat) * r, dn = (b.lon - a.lon) * r; const x = Math.sin(dl / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
+const postCache = new Map();
+async function postOffices(p) {
+  const k = p.lat.toFixed(3) + ',' + p.lon.toFixed(3);
+  if (postCache.has(k)) return postCache.get(k);
+  // OpenStreetMap search for post offices in a box of about 3 km around the seller
+  const d = 0.03, box = [p.lon - d * 1.6, p.lat + d, p.lon + d * 1.6, p.lat - d].join(',');
+  const u = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ format: 'jsonv2', amenity: 'post_office', viewbox: box, bounded: '1', limit: '15', addressdetails: '1', extratags: '1' });
+  const r = await fetch(u, { headers: UA, signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error('The map service is busy, try again in a moment.');
+  const seen = new Set();
+  const out = (await r.json()).map((e) => {
+    const a = e.address || {}, at = { lat: +e.lat, lon: +e.lon };
+    return { name: e.name || 'Post office', street: [a.road, a.house_number].filter(Boolean).join(' '), city: a.city || a.town || a.suburb || '', hours: e.extratags?.opening_hours || '', km: Math.round(km(p, at) * 10) / 10, lat: at.lat, lon: at.lon };
+  }).filter((o) => !seen.has(o.name + o.street) && seen.add(o.name + o.street)).sort((a, b) => a.km - b.km).slice(0, 3);
+  postCache.set(k, out); return out;
 }
 
 // ---------- shapes sent to the page ----------
@@ -211,6 +266,7 @@ const full = (l, viewer) => ({
   ...card(l), description: l.description, facts: l.facts || [], country: l.country, seller: person(l.sellerId),
   buyer: l.buyerId ? person(l.buyerId) : null, mine: viewer === l.sellerId, boughtByMe: !!viewer && viewer === l.buyerId,
   reviews: l.status === 'sold' ? { buyer: l.reviews?.buyer || null, seller: l.reviews?.seller || null } : null,
+  soldAt: l.soldAt || null, tracking: (viewer === l.sellerId || viewer === l.buyerId) ? l.tracking || null : null,
 });
 
 // ---------- app ----------
@@ -333,7 +389,7 @@ app.post('/api/listings/:id/pay', wrap(async (q, s) => {
     markSold(l, u, cap, 'card');
     return s.json({ paid: true, listing: full(l, u.id) });
   }
-  const { payUrl } = await paypalCheckout(l, u);
+  const { payUrl } = await paypalCheckout(l, u, origin(q));
   s.json({ payUrl });
 }));
 
@@ -352,6 +408,80 @@ app.get('/paypal/return', async (q, s) => {
     s.redirect(`/?item=${l.id}&error=${encodeURIComponent(e.message)}`);
   }
 });
+
+// ---------- Sign up with PayPal: name, country and address come from PayPal ----------
+const states = new Map();
+app.get('/auth/paypal', (q, s) => {
+  const st = crypto.randomBytes(12).toString('hex');
+  const back = origin(q) + '/auth/paypal/return';
+  states.set(st, { back, at: Date.now() });
+  s.redirect(PP_WEB + '/signin/authorize?' + new URLSearchParams({ flowEntry: 'static', client_id: PP_ID, response_type: 'code', scope: 'openid profile email address', redirect_uri: back, state: st }));
+});
+app.get('/auth/paypal/return', async (q, s) => {
+  const st = states.get(String(q.query.state || '')); states.delete(String(q.query.state || ''));
+  if (q.query.error || !q.query.code) return s.redirect('/?error=' + encodeURIComponent(q.query.error_description || 'PayPal sign-in was cancelled.'));
+  if (!st) return s.redirect('/?error=' + encodeURIComponent('Sign-in expired, try again.'));
+  try {
+    const t = await fetch(PP_API + '/v1/oauth2/token', { method: 'POST', headers: { authorization: 'Basic ' + Buffer.from(PP_ID + ':' + PP_SECRET).toString('base64'), 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'authorization_code', code: String(q.query.code) }) });
+    const tj = await t.json();
+    if (!t.ok) throw new Error(tj.error_description || 'PayPal said no');
+    const ui = await (await fetch(PP_API + '/v1/identity/openidconnect/userinfo?schema=openid', { headers: { authorization: 'Bearer ' + tj.access_token } })).json();
+    const a = ui.address || {};
+    const country = String(a.country || '').toUpperCase();
+    if (!COUNTRIES[country]) throw new Error(`Homing isn't open in your country (${country || 'unknown'}) yet.`);
+    const full = ui.name || [ui.given_name, ui.family_name].filter(Boolean).join(' ') || 'PayPal user';
+    const lines = String(a.street_address || '').split(/\n|, /);
+    const address = { line1: lines[0] || '', line2: lines.slice(1).join(', '), city: a.locality || '', zip: a.postal_code || '', country };
+    let u = users.find((x) => x.paypalId === ui.user_id);
+    if (!u) { u = { id: id('u'), at: Date.now() }; users.push(u); }
+    Object.assign(u, { paypalId: ui.user_id, name: ui.given_name || full.split(' ')[0], fullName: full, country, address, email: ui.email || '', via: 'paypal' });
+    persist();
+    s.redirect('/#signed/' + u.id);
+  } catch (e) { console.error(e); s.redirect('/?error=' + encodeURIComponent(e.message)); }
+});
+// Demo for judges without a PayPal sandbox login: a made-up person with a made-up Berlin address.
+const DEMO = [['Alex', 'Torstraße 45', '10119'], ['Sam', 'Oranienstraße 25', '10999'], ['Jo', 'Kastanienallee 12', '10435'], ['Robin', 'Bergmannstraße 8', '10961'], ['Kim', 'Schönhauser Allee 70', '10437']];
+app.post('/api/signin/demo', (q, s) => {
+  const [name, line1, zip] = DEMO[crypto.randomInt(DEMO.length)];
+  const u = { id: id('u'), name, fullName: name + ' Demo', country: 'DE', address: { line1, line2: '', city: 'Berlin', zip, country: 'DE' }, at: Date.now(), via: 'demo' };
+  users.push(u); persist(); s.json(u);
+});
+app.get('/api/whoami', (q, s) => { const u = need(q, s); if (u) s.json(u); });
+
+// ---------- after a sale: everything the seller needs to send it ----------
+app.get('/api/listings/:id/ship', wrap(async (q, s) => {
+  const u = need(q, s); if (!u) return;
+  const l = listings.find((x) => x.id === q.params.id);
+  if (!l || l.status !== 'sold' || l.sellerId !== u.id) return s.status(404).json({ error: 'Not your sale.' });
+  const sh = l.ship || {};
+  const text = [`Homing ${sh.code}`, l.title, sh.name, sh.line1, sh.line2, `${sh.zip} ${sh.city}`, COUNTRIES[sh.country]?.name].filter((x) => x && x.trim()).join('\n');
+  const qr = await QRCode.toString(text, { type: 'svg', margin: 0, color: { dark: '#0a0a0c', light: '#0000' }, errorCorrectionLevel: 'M' });
+  s.json({ item: card(l), buyer: person(l.buyerId), ship: sh, qr, tracking: l.tracking || null, paidAt: l.soldAt, from: u.address || null });
+}));
+const CARRIERS = { DHL: 'DHL', DEUTSCHE_DE: 'Deutsche Post', HERMES: 'Hermes', DPD: 'DPD', GLS: 'GLS', UPS: 'UPS' };
+app.post('/api/listings/:id/track', wrap(async (q, s) => {
+  const u = need(q, s); if (!u) return;
+  const l = listings.find((x) => x.id === q.params.id);
+  if (!l || l.status !== 'sold' || l.sellerId !== u.id) return s.status(404).json({ error: 'Not your sale.' });
+  const carrier = String(q.body.carrier || ''); const number = String(q.body.number || '').replace(/\s+/g, '').slice(0, 40);
+  if (!CARRIERS[carrier]) return s.status(400).json({ error: 'Pick who carries it.' });
+  if (number.length < 6) return s.status(400).json({ error: 'Type the tracking number.' });
+  // tell PayPal, so the buyer sees it in their PayPal activity too
+  let inPayPal = false;
+  if (l.capture?.orderId && l.capture?.id) {
+    try { await pp('POST', `/v2/checkout/orders/${l.capture.orderId}/track`, { capture_id: l.capture.id, tracking_number: number, carrier, notify_payer: true }); inPayPal = true; }
+    catch (e) { console.error('track', e.message); }
+  }
+  l.tracking = { carrier, carrierName: CARRIERS[carrier], number, inPayPal, at: Date.now() };
+  persist(); s.json(l.tracking);
+}));
+app.get('/api/post-offices', wrap(async (q, s) => {
+  const u = need(q, s); if (!u) return;
+  let p = q.query.lat ? { lat: Number(q.query.lat), lon: Number(q.query.lon) } : null;
+  if (!p && u.address) p = await geocode(u.address);
+  if (!p) return s.json({ near: [], why: 'No address to search from.' });
+  s.json({ near: await postOffices(p), from: q.query.lat ? 'you' : 'address' });
+}));
 
 // Reviews: only the buyer and the seller of a finished deal, once each.
 app.post('/api/listings/:id/review', (q, s) => {

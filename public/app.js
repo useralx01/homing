@@ -57,6 +57,13 @@ document.addEventListener('pointerdown', (e) => {
 $('#back').onclick = () => (depth > 0 ? history.back() : (location.hash = 'home'));
 
 async function route() {
+  if (location.hash.startsWith('#signed/')) {
+    // back from PayPal: the server made or found the account
+    me = null;
+    try { me = await api('/api/whoami', { headers: { 'x-user': location.hash.split('/')[1] } }); localStorage.setItem('homing.user', JSON.stringify(me)); setupForUser(); toast(`Signed in with PayPal as ${me.fullName || me.name}.`); }
+    catch { me = null; }
+    history.replaceState(null, '', '/#home');
+  }
   if (!me) return show('signin');
   const [name, arg] = location.hash.slice(1).split('/');
   stopWaiting();
@@ -72,19 +79,17 @@ async function route() {
     case 'me': return openMe();
     case 'board': return openBoard();
     case 'user': return openUser(arg);
+    case 'ship': return openShip(arg);
     default: return openHome();
   }
 }
 
 // ---------- sign in ----------
-$('#signinForm').onsubmit = async (e) => {
-  e.preventDefault();
-  $('#signinErr').textContent = '';
+$('#demoBtn').onclick = async () => {
   try {
-    me = await api('/api/signin', { method: 'POST', json: Object.fromEntries(new FormData(e.target)) });
+    me = await api('/api/signin/demo', { method: 'POST', json: {} });
     localStorage.setItem('homing.user', JSON.stringify(me));
-    setupForUser();
-    location.hash = 'home'; route();
+    setupForUser(); location.hash = 'home'; route();
   } catch (err) { $('#signinErr').textContent = err.message; }
 };
 $('#signout').onclick = () => { localStorage.removeItem('homing.user'); me = null; location.hash = ''; show('signin'); };
@@ -236,7 +241,8 @@ function sold(l) {
   $('#pSub').textContent = `${money(l.price, l.currency)} paid with PayPal.`;
   const o = $('#pOutcome');
   o.hidden = false;
-  o.innerHTML = '<div class="rate"></div><a class="secondary" href="#home" style="margin-top:18px">Done</a>';
+  o.innerHTML = `<a class="primary" href="#ship/${l.id}" style="margin-top:4px">Ship it</a><div class="rate"></div>`;
+  seenSold.add(l.id); saveSeen();
   rateForm($('.rate', o), l, 'seller', l.buyer.name);
 }
 function noBuyer(lid, why) {
@@ -404,12 +410,12 @@ async function openMe() {
   $('#mName').textContent = d.user.name;
   $('#mStats').innerHTML = `${esc(meta.countries[d.user.country].name)} · ${d.user.sold} sold · ${d.user.bought} bought${d.user.stars ? ` · ${STAR} ${d.user.stars}` : ''}`;
   $('#mSell').innerHTML = d.mine.length ? d.mine.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)}${l.status === 'sold' ? ' · sold to ' + esc(l.buyer.name) : ''}</small></a>
-    <span class="act">${l.status === 'sold' ? (l.reviews?.seller ? '<span class="tag ok">Done</span>' : `<a class="tag blue" href="#item/${l.id}">Rate ${esc(l.buyer.name)}</a>`) : `<span class="tag">For sale</span><button class="danger" data-del="${l.id}">Delete</button>`}</span></li>`).join('')
+    <span class="act">${l.status === 'sold' ? (l.tracking ? `<a class="tag ok" href="#ship/${l.id}">Sent · ${esc(l.tracking.carrierName)}</a>` : `<a class="tag blue" href="#ship/${l.id}">Ship it</a>`) : `<span class="tag">For sale</span><button class="danger" data-del="${l.id}">Delete</button>`}</span></li>`).join('')
     : '<li class="none">Nothing yet. <a href="#sell"><u>Sell something</u></a></li>';
   $('#mLook').innerHTML = d.looking.length ? d.looking.map((w) => `<li>${SEARCH}<span class="t"><b>${esc(w.what)}</b><small>${money(w.minPrice)} to ${money(w.maxPrice)} · ${esc(w.category)}</small>${w.found.length ? `<span class="found">${w.found.map((f) => `<a href="#item/${f.listing.id}"><img src="${esc(f.listing.photo)}" alt="${esc(f.listing.title)}"></a>`).join('')}</span>` : ''}</span>
     <span class="act">${w.found.length ? `<span class="tag blue">${w.found.length} found</span>` : '<span class="tag">Looking</span>'}<button class="danger" data-delw="${w.id}">Delete</button></span></li>`).join('')
     : '<li class="none">Nothing yet. <a href="#buy"><u>Say what you want</u></a></li>';
-  $('#mBought').innerHTML = d.bought.length ? d.bought.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)} · from ${esc(l.seller.name)}</small></a>
+  $('#mBought').innerHTML = d.bought.length ? d.bought.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)} · from ${esc(l.seller.name)}${l.tracking ? ` · on its way, ${esc(l.tracking.carrierName)} ${esc(l.tracking.number)}` : ''}</small></a>
     <span class="act">${l.reviews?.buyer ? '<span class="tag ok">Done</span>' : `<a class="tag blue" href="#item/${l.id}">Rate ${esc(l.seller.name)}</a>`}</span></li>`).join('')
     : '<li class="none">Nothing yet.</li>';
   $$('[data-del]').forEach((b) => (b.onclick = async () => { await api(`/api/listings/${b.dataset.del}`, { method: 'DELETE' }); toast('Deleted.'); openMe(); }));
@@ -437,7 +443,6 @@ async function openBoard() {
 (async () => {
   meta = await api('/api/meta');
   if (!me) api('/api/listings?country=DE').then((l) => window.shelf?.('shelfIn', l)).catch(() => {});
-  $('#countrySel').innerHTML = '<option value="" disabled selected>Choose</option>' + Object.entries(meta.countries).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
   chips($('#sCats'), { onPick: checkSell });
   chips($('#wCats'), { onPick: checkBuy });
   chips($('#bCats'), { all: true, onPick: (c) => { browseCat = c; openBrowse(); } });
@@ -448,10 +453,10 @@ async function openBoard() {
     if (q.get('late')) setTimeout(() => toast('Someone was faster. You were not charged.'), 300);
     if (q.get('error')) setTimeout(() => toast(q.get('error')), 300);
     history.replaceState(null, '', '/#' + h);
-  }
+  } else if (q.has('error')) { const m = q.get('error'); setTimeout(() => { $('#signinErr').textContent = m; toast(m); }, 300); history.replaceState(null, '', '/' + location.hash); }
   if (me && !meta.countries[me.country]) me = null;
   if (me) {
-    try { me = await api('/api/signin', { method: 'POST', json: { name: me.name, country: me.country } }); localStorage.setItem('homing.user', JSON.stringify(me)); }
+    try { me = await api('/api/whoami'); localStorage.setItem('homing.user', JSON.stringify(me)); }
     catch { me = null; }
   }
   if (me) setupForUser();
@@ -482,3 +487,96 @@ function openSheet() { $('#sheet').hidden = false; document.body.classList.add('
 function closeSheet() { $('#sheet').classList.remove('open'); document.body.classList.remove('locked'); setTimeout(() => ($('#sheet').hidden = true), 280); }
 $('#sheetBg').onclick = closeSheet;
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
+
+// ---------- sold: the seller hears it right away ----------
+let seenSold = new Set(), seenKey = '';
+const saveSeen = () => { try { localStorage.setItem(seenKey, JSON.stringify([...seenSold])); } catch {} };
+let soldFirst = true;
+async function watchSales() {
+  if (!me) return;
+  if (seenKey !== 'homing.seen.' + me.id) { seenKey = 'homing.seen.' + me.id; soldFirst = true; try { seenSold = new Set(JSON.parse(localStorage.getItem(seenKey) || 'null') || []); } catch { seenSold = new Set(); } }
+  const d = await api('/api/me').catch(() => null); if (!d) return;
+  const sold = d.mine.filter((l) => l.status === 'sold');
+  // the first look only remembers what is already sold; after that every new sale rings
+  if (soldFirst && !localStorage.getItem(seenKey)) { sold.forEach((l) => seenSold.add(l.id)); saveSeen(); }
+  soldFirst = false;
+  const fresh = sold.find((l) => !seenSold.has(l.id));
+  if (!fresh) return;
+  seenSold.add(fresh.id); saveSeen();
+  if (location.hash === '#posted') return; // the posted screen already shows it
+  const a = $('#alert');
+  a.href = '#ship/' + fresh.id; $('#alImg').src = fresh.photo;
+  $('#alHead').textContent = `Sold! ${fresh.title}`;
+  $('#alSub').textContent = `${fresh.buyer.name} paid ${money(fresh.price, fresh.currency)} with PayPal`;
+  a.hidden = false; requestAnimationFrame(() => a.classList.add('in'));
+  buzz(18);
+  clearTimeout(a._t); a._t = setTimeout(hideAlert, 12000);
+  if ('Notification' in window && Notification.permission === 'granted') try { new Notification('Sold! ' + fresh.title, { body: `${fresh.buyer.name} paid with PayPal. Ship it.`, icon: fresh.photo }); } catch {}
+}
+function hideAlert() { const a = $('#alert'); a.classList.remove('in'); setTimeout(() => (a.hidden = true), 350); }
+$('#alert').addEventListener('click', hideAlert);
+setInterval(watchSales, 6000); setTimeout(watchSales, 1500);
+
+// ---------- ship it ----------
+const CARRIER_LIST = [['DHL', 'DHL'], ['DEUTSCHE_DE', 'Deutsche Post'], ['HERMES', 'Hermes'], ['DPD', 'DPD'], ['GLS', 'GLS'], ['UPS', 'UPS']];
+async function openShip(lid) {
+  let d;
+  try { d = await api(`/api/listings/${lid}/ship`); } catch (e) { toast(e.message); location.hash = 'me'; return; }
+  seenSold.add(lid); saveSeen();
+  const sh = d.ship || {};
+  $('#shKick').textContent = `Paid ${ago(d.paidAt)} · ${money(d.item.price, d.item.currency)} is in your PayPal`;
+  $('#shImg').src = d.item.photo; $('#shTitle').textContent = d.item.title; $('#shPaid').textContent = `to ${d.buyer.name}`;
+  $('#shQr').innerHTML = d.qr; $('#shCode').textContent = sh.code || '';
+  const lines = [sh.name, sh.line1, sh.line2, [sh.zip, sh.city].filter(Boolean).join(' '), meta.countries[sh.country]?.name].filter((x) => x && String(x).trim());
+  $('#shTo').innerHTML = `<address>${lines.map(esc).join('<br>')}</address><button class="copy" type="button">Copy</button><small>From the buyer's PayPal</small>`;
+  $('.copy', $('#shTo')).onclick = async (e) => { try { await navigator.clipboard.writeText(lines.join('\n')); e.target.textContent = 'Copied'; } catch { e.target.textContent = 'Select and copy'; } };
+  const n = sh.notes;
+  $('#shNotes').innerHTML = n ? `<p class="box">${esc(n.box)}</p><ol>${n.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : '<p class="sub">Writing packing notes…</p>';
+  if (!n) setTimeout(() => location.hash === '#ship/' + lid && api(`/api/listings/${lid}/ship`).then((x) => x.ship?.notes && openShipNotes(x.ship.notes)).catch(() => {}), 3000);
+  drawTrack(lid, d.tracking);
+  loadPosts();
+  show('ship');
+}
+function openShipNotes(n) { $('#shNotes').innerHTML = `<p class="box">${esc(n.box)}</p><ol>${n.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>`; }
+function drawTrack(lid, t) {
+  const box = $('#shTrack');
+  if (t) { box.innerHTML = `<div class="tracked">${TICK_S}<span><b>${esc(t.carrierName)} · ${esc(t.number)}</b><small>${t.inPayPal ? 'Added to the payment in PayPal. The buyer sees it there.' : 'Saved. The buyer sees it in Homing.'}</small></span></div>`; return; }
+  box.innerHTML = `<div class="chips" id="shCar" role="radiogroup">${CARRIER_LIST.map(([v, n]) => `<button type="button" role="radio" aria-checked="false" data-v="${v}">${n}</button>`).join('')}</div>
+    <div class="trackrow"><input id="shNum" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="send" placeholder="Tracking number"><button class="primary" id="shSend" type="button" disabled>Add</button></div>
+    <p class="err" id="shErr"></p>`;
+  const ok = () => ($('#shSend').disabled = !(picked($('#shCar')) && $('#shNum').value.trim().length >= 6));
+  $$('#shCar button').forEach((b) => (b.onclick = () => { $$('#shCar button').forEach((x) => x.setAttribute('aria-checked', String(x === b))); ok(); }));
+  $('#shNum').oninput = ok;
+  $('#shNum').onkeydown = (e) => { if (e.key === 'Enter' && !$('#shSend').disabled) $('#shSend').click(); };
+  $('#shSend').onclick = async () => {
+    $('#shSend').disabled = true; $('#shSend').textContent = '…';
+    try { drawTrack(lid, await api(`/api/listings/${lid}/track`, { method: 'POST', json: { carrier: picked($('#shCar')), number: $('#shNum').value } })); buzz(12); }
+    catch (e) { $('#shErr').textContent = e.message; $('#shSend').textContent = 'Add'; ok(); }
+  };
+}
+const TICK_S = '<svg class="tk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"/><path d="M7 12.5l3.2 3.2L17 9"/></svg>';
+async function loadPosts(at) {
+  const ul = $('#shPosts');
+  ul.innerHTML = '<li class="sk"></li><li class="sk"></li>';
+  try {
+    const r = await api('/api/post-offices' + (at ? `?lat=${at.lat}&lon=${at.lon}` : ''));
+    ul.innerHTML = r.near.length ? r.near.map((p) => `<li><a href="https://www.openstreetmap.org/directions?to=${p.lat}%2C${p.lon}" target="_blank" rel="noopener"><span class="km">${p.km < 1 ? Math.round(p.km * 1000) + ' m' : p.km + ' km'}</span><span class="t"><b>${esc(p.name)}</b><small>${esc([p.street, p.city].filter(Boolean).join(', '))}${p.hours ? ' · ' + esc(p.hours) : ''}</small></span>${CHEV}</a></li>`).join('')
+      : '<li class="none">No post office found nearby.</li>';
+    ul.insertAdjacentHTML('beforeend', `<li class="note">Near ${r.from === 'you' ? 'where you are now' : 'your PayPal address'}${!at && navigator.geolocation && isSecureContext ? ' · <button class="textbtn" id="shHere" type="button">Use where I am</button>' : ''} · map data © OpenStreetMap</li>`);
+    $('#shHere')?.addEventListener('click', () => navigator.geolocation.getCurrentPosition((g) => loadPosts({ lat: g.coords.latitude, lon: g.coords.longitude }), () => toast('Location is off.')));
+  } catch (e) { ul.innerHTML = `<li class="none">${esc(e.message)} <button class="textbtn" id="shRetry" type="button">Try again</button></li>`; $('#shRetry').onclick = () => loadPosts(at); }
+}
+
+// ---------- feel: touch, typing, selecting ----------
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch {} };
+document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && e.target.closest('button,.big,.primary,.secondary,.chips button,.gcard,.ppbtn,.seg button')) buzz(6); }, { passive: true });
+// Enter jumps to the next field; the field you type in is never under the keyboard
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (e.key !== 'Enter' || !t.matches('input:not([type=checkbox]):not(#shNum)')) return;
+  const form = t.closest('form'); if (!form) return;
+  const f = [...form.querySelectorAll('input:not([type=hidden]):not([type=file]):not([type=checkbox]),textarea')].filter((x) => !x.disabled && x.offsetParent);
+  const nx = f[f.indexOf(t) + 1];
+  if (nx) { e.preventDefault(); nx.focus(); }
+});
+document.addEventListener('focusin', (e) => { if (e.target.matches('input,textarea') && matchMedia('(pointer:coarse)').matches) setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 280); });

@@ -6,17 +6,22 @@
 <title>Homing</title>
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Homing">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/manifest.json">
 <meta name="description" content="Buy and sell in a minute. Photo, price, post. AI finds the buyer, PayPal pays.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Inter+Tight:wght@600..800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/app.css?v=43">
+<link rel="stylesheet" href="/app.css?v=51">
 </head>
 <body>
 
 <header class="top" id="top" hidden>
   <button class="back" id="back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-  <a class="brand" href="#home"><img src="/logo.svg" alt="" width="26" height="26">Homing</a>
+  <a class="brand" href="#home"><img src="/logo-blue.svg" alt="" width="26" height="26">Homing</a>
   <a class="mebtn" href="#me" id="meBtn" aria-label="My stuff"><span class="av" id="meAv"></span><i class="dot" id="meDot" hidden></i></a>
 </header>
 
@@ -27,13 +32,12 @@
     <div class="stage" id="shelfIn"><a class="tag" id="shelfInTag" href="#"><b></b><span></span></a></div>
     <h1>Homing</h1>
     <p class="sub">Buy and sell in a minute.</p>
-    <form id="signinForm" class="form" autocomplete="off">
-      <label class="field"><span>Your name</span><input name="name" required maxlength="30" placeholder="Alex"></label>
-      <label class="field"><span>Your country</span><select name="country" id="countrySel" required></select></label>
-      <button class="primary" type="submit">Continue</button>
+    <div class="pp-in">
+      <a class="ppbtn" id="ppBtn" href="/auth/paypal"><svg class="ppm" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" opacity=".7" d="M19.6 7.3c.3 2.7-1.4 6-5.6 6h-1.9l-.9 5.5H8l2.3-14h4.3c2.6 0 4.7.9 5 2.5z"/><path fill="#fff" d="M7.4 2h6.1c3 0 5.4 1.3 4.9 4.6-.6 3.7-3 5.4-6.4 5.4H10l-1.1 6.8H4.8z"/></svg><span>Continue with PayPal</span></a>
       <p class="err" id="signinErr" role="alert"></p>
-    </form>
-    <p class="fine">You only buy and sell inside your country. No shipping across borders.</p>
+      <p class="fine">Your name, country and address come from PayPal. Nothing to type. You buy and sell only inside your country.</p>
+      <button class="textbtn" id="demoBtn" type="button">Try the demo without PayPal</button>
+    </div>
   </section>
 
   <!-- HOME -->
@@ -145,6 +149,22 @@
     <div class="rate" id="paidRate"></div>
   </section>
 
+  <!-- SHIP IT: after a sale -->
+  <section class="screen ship" data-screen="ship" hidden>
+    <p class="kicker" id="shKick"></p>
+    <h2>Ship it</h2>
+    <figure class="mini"><img id="shImg" alt=""><figcaption><b id="shTitle"></b><span id="shPaid"></span></figcaption></figure>
+    <div class="qrbox"><div class="qr" id="shQr"></div><div class="qr-t"><b id="shCode"></b><span>Write this code on the box. The QR holds the address and the code, scan it to fill any shipping label.</span></div></div>
+    <h3>Send to</h3>
+    <div class="addr" id="shTo"></div>
+    <h3>Pack it</h3>
+    <div class="notes" id="shNotes"></div>
+    <h3>Tracking</h3>
+    <div id="shTrack"></div>
+    <h3>Nearest post office</h3>
+    <ul class="posts" id="shPosts"></ul>
+  </section>
+
   <!-- MY STUFF -->
   <section class="screen me" data-screen="me" hidden>
     <div class="me-head"><span class="av lg" id="mAv"></span><div><h2 id="mName"></h2><p class="sub" id="mStats"></p></div></div>
@@ -174,9 +194,10 @@
 </main>
 
 <div class="sheet" id="sheet" hidden><div class="sheet-bg" id="sheetBg"></div><div class="sheet-panel" role="dialog" aria-modal="true"><span class="grab"></span><div id="sheetBody"></div></div></div>
+<a class="alert" id="alert" href="#" hidden><img alt="" id="alImg"><span><b id="alHead"></b><small id="alSub"></small></span><i>Ship it</i></a>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script type="module" src="/shelf-boot.js?v=43"></script>
-<script src="/app.js?v=44" type="module"></script>
+<script src="/app.js?v=51" type="module"></script>
 </body>
 </html>

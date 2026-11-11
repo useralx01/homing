@@ -1,0 +1,1 @@
+{ "name": "Homing", "short_name": "Homing", "start_url": "/#home", "display": "standalone", "background_color": "#ffffff", "theme_color": "#ffffff", "icons": [{ "src": "/logo-blue.svg", "sizes": "any", "type": "image/svg+xml" }] }
