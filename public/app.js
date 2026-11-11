@@ -474,8 +474,8 @@ async function openItem(lid) {
   box.innerHTML = '';
   $('#iBar').hidden = true;
   if (l.status === 'sold') {
-    if (l.boughtByMe) { box.innerHTML = '<p class="note">You bought this.</p><div class="rate"></div>'; rateForm($('.rate', box), l, 'buyer', s.name); }
-    else if (l.mine) { box.innerHTML = `<p class="note">Sold to ${esc(l.buyer.name)}.</p><div class="rate"></div>`; rateForm($('.rate', box), l, 'seller', l.buyer.name); }
+    if (l.boughtByMe) { box.innerHTML = '<div class="track"></div><div class="rate"></div>'; trackView($('.track', box), l.track, l.id, 'buyer'); rateForm($('.rate', box), l, 'buyer', s.name); }
+    else if (l.mine) { box.innerHTML = `<p class="note">Sold to ${esc(l.buyer.name)}.</p><div class="track"></div><div class="rate"></div>`; trackView($('.track', box), l.track, l.id, 'seller'); rateForm($('.rate', box), l, 'seller', l.buyer.name); }
     else box.innerHTML = '<p class="note">Someone was faster. This is sold.</p>';
   } else if (l.mine) {
     box.innerHTML = '<p class="note">This is yours. It is up for sale.</p><button class="secondary danger">Delete</button>';
@@ -542,12 +542,12 @@ async function openMe() {
   $('#mName').textContent = d.user.name;
   $('#mStats').innerHTML = `${esc(meta.countries[d.user.country].name)} · ${d.user.sold} sold · ${d.user.bought} bought${d.user.stars ? ` · ${STAR} ${d.user.stars}` : ''}`;
   $('#mSell').innerHTML = d.mine.length ? d.mine.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)}${l.status === 'sold' ? ' · sold to ' + esc(l.buyer.name) : ''}</small></a>
-    <span class="act">${l.status === 'sold' ? (l.tracking ? `<a class="tag ok" href="#ship/${l.id}">Sent · ${esc(l.tracking.carrierName)}</a>` : `<a class="tag blue" href="#ship/${l.id}">Ship it</a>`) : `<span class="tag">For sale</span><button class="danger" data-del="${l.id}">Delete</button>`}</span></li>`).join('')
+    <span class="act">${l.status === 'sold' ? (l.track && l.track.status !== 'paid' ? `<a class="tag ${l.track.delivered ? 'ok' : 'blue'}" href="#ship/${l.id}">${esc(l.track.say)}</a>` : `<a class="tag blue" href="#ship/${l.id}">Ship it</a>`) : `<span class="tag">For sale</span><button class="danger" data-del="${l.id}">Delete</button>`}</span></li>`).join('')
     : '<li class="none"><img class="dotmini" src="/img/dot-sleep.webp" alt="">Nothing yet. <a href="#sell"><u>Sell something</u></a></li>';
   $('#mLook').innerHTML = d.looking.length ? d.looking.map((w) => `<li>${SEARCH}<span class="t"><b>${esc(w.what)}</b><small>${money(w.minPrice)} to ${money(w.maxPrice)} · ${esc(w.category)}</small>${w.found.length ? `<span class="found">${w.found.map((f) => `<a href="#item/${f.listing.id}"><img src="${esc(f.listing.photo)}" alt="${esc(f.listing.title)}"></a>`).join('')}</span>` : ''}</span>
     <span class="act">${w.found.length ? `<span class="tag blue">${w.found.length} found</span>` : '<span class="tag">Looking</span>'}<button class="danger" data-delw="${w.id}">Delete</button></span></li>`).join('')
     : '<li class="none"><img class="dotmini" src="/img/dot-search.webp" alt="">Nothing yet. <a href="#buy"><u>Say what you want</u></a></li>';
-  $('#mBought').innerHTML = d.bought.length ? d.bought.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)} · from ${esc(l.seller.name)}${l.tracking ? ` · on its way, ${esc(l.tracking.carrierName)} ${esc(l.tracking.number)}` : ''}</small></a>
+  $('#mBought').innerHTML = d.bought.length ? d.bought.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)} · from ${esc(l.seller.name)}${l.track ? ` · ${esc(l.track.say)}` : ''}</small></a>
     <span class="act">${l.reviews?.buyer ? '<span class="tag ok">Done</span>' : `<a class="tag blue" href="#item/${l.id}">Rate ${esc(l.seller.name)}</a>`}</span></li>`).join('')
     : '<li class="none"><img class="dotmini" src="/img/dot-hello.webp" alt="">Nothing yet.</li>';
   $$('[data-del]').forEach((b) => (b.onclick = async () => { await api(`/api/listings/${b.dataset.del}`, { method: 'DELETE' }); toast('Deleted.'); openMe(); }));
@@ -691,7 +691,7 @@ async function openShip(lid) {
   const n = sh.notes;
   $('#shNotes').innerHTML = n ? `<p class="box">${esc(n.box)}</p><ol>${n.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : '<p class="sub">Writing packing notes…</p>';
   if (!n) setTimeout(() => location.hash === '#ship/' + lid && api(`/api/listings/${lid}/ship`).then((x) => x.ship?.notes && openShipNotes(x.ship.notes)).catch(() => {}), 3000);
-  drawTrack(lid, d.tracking);
+  trackView($('#shTrack'), d.track, lid, 'seller');
   loadPosts();
   show('ship');
 }
@@ -751,3 +751,28 @@ $('#mAvIn')?.addEventListener('change', async (e) => {
     setupForUser(); avatar($('#mAv'), me.name, me.avatar); haptic?.('success'); toast('New photo saved.');
   } catch (err) { toast(err.message); }
 });
+
+// ---------- parcel tracking: updates by itself, nobody types a number ----------
+const dayWord = (t) => { const d = new Date(t), n = new Date(); const k = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); const diff = Math.round((k(d) - k(n)) / 86400000); return diff === 0 ? 'today' : diff === 1 ? 'tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }); };
+const hm = (t) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+let trackTimer = 0;
+function trackView(box, t, lid, side) {
+  clearTimeout(trackTimer);
+  if (!box) return;
+  if (!t) { box.innerHTML = ''; return; }
+  const idx = t.steps.reduce((a, x, i) => (x.at ? i : a), 0);
+  const pct = (idx / (t.steps.length - 1)) * 100;
+  const when = t.delivered ? `Delivered ${dayWord(t.eta)} at ${hm(t.eta)}` : `Arrives ${dayWord(t.eta)}`;
+  box.innerHTML = `<div class="trk-top"><b>${esc(t.say)}</b><span>${esc(when)}</span></div>
+    <div class="trk-line" style="--p:${pct}%"><i></i>${t.steps.map((x, i) => `<span class="st${x.at ? ' on' : ''}${i === idx ? ' now' : ''}"><em></em><small>${esc(x.label)}</small></span>`).join('')}</div>
+    <ul class="trk-ev">${t.events.map((e) => `<li><time>${esc(dayWord(e.at))}, ${hm(e.at)}</time><b>${esc(e.label)}</b>${e.where ? `<small>${esc(e.where)}</small>` : ''}</li>`).join('')}</ul>
+    <p class="trk-meta">${esc(t.carrier)} ${esc(t.number)}${t.inPayPal ? ' · also in your PayPal' : ''}${t.sandbox ? ' · <span class="sbx">Sandbox test parcel</span>' : ''}${side === 'seller' && t.status === 'paid' ? '<br>Open the label to print it. Tracking starts by itself.' : ''}</p>`;
+  // keep it live while this page is open
+  if (!t.delivered) {
+    const here = location.hash;
+    trackTimer = setTimeout(async () => {
+      if (location.hash !== here || !box.isConnected) return;
+      try { const l = await api(`/api/listings/${lid}?userId=${me.id}`); if (l.track && l.track.status !== t.status) haptic('light'); trackView(box, l.track, lid, side); } catch {}
+    }, 15000);
+  }
+}

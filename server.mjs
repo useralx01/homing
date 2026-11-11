@@ -230,6 +230,7 @@ function markSold(l, buyer, cap, via) {
     labelKey: crypto.randomBytes(12).toString('hex'),
   };
   shipNotes(l).then((n) => { l.ship.notes = n; persist(); }).catch(() => {});
+  ensureShipment(l);
   // anyone else who was matched to it simply sees it's gone; the buyer's want is done
   for (const w of wants) if (w.userId === buyer.id && w.status === 'open' && w.matches.some((m) => m.listingId === l.id)) w.status = 'done';
   persist();
@@ -275,6 +276,68 @@ async function postOffices(p) {
   postCache.set(k, out); return out;
 }
 
+// ---------- automatic shipping + tracking (like a big shop: nobody types a tracking number) ----------
+// At the sale Homing books the parcel with the carrier: the label carries the parcel number, the number goes
+// into the PayPal payment by itself, and the steps update by themselves.
+// Real DHL needs a DHL business customer account (GKP) + an API key from developer.dhl.com (DHL_API_KEY ...).
+// Until then the carrier is a SANDBOX parcel: same flow, test number, steps move on a short demo clock,
+// and every screen says "Sandbox". Never shown as a real parcel.
+const CARRIER_MODE = process.env.DHL_API_KEY && process.env.DHL_GKP_USER ? 'dhl' : 'sandbox';
+const MIN = 60 * 1000;
+const DEMO_CLOCK = Number(process.env.TRACK_DEMO_MINUTES || 1); // 1 = one step per minute or two
+const STEPS = [
+  { key: 'paid', label: 'Paid with PayPal' },
+  { key: 'label', label: 'Label ready' },
+  { key: 'dropped', label: 'Handed to DHL' },
+  { key: 'transit', label: 'On the way' },
+  { key: 'out', label: 'Out for delivery' },
+  { key: 'delivered', label: 'Delivered' },
+];
+// sandbox: minutes after the label is first opened (printing it = packing it)
+const SANDBOX_AFTER = { dropped: 2, transit: 4, out: 7, delivered: 9 };
+const HUBS = { DE: ['Berlin', 'Leipzig hub', 'Berlin delivery base'] };
+function ensureShipment(l) {
+  if (l.status !== 'sold') return null;
+  const sh = l.ship || (l.ship = {});
+  if (!l.shipment) {
+    const number = l.tracking?.number || ('TEST' + String(crypto.randomInt(1e9)).padStart(9, '0') + String(crypto.randomInt(1e3)).padStart(3, '0'));
+    l.shipment = { carrier: 'DHL', mode: l.tracking?.number ? 'manual' : CARRIER_MODE, number, bookedAt: l.soldAt || Date.now(), labelAt: null };
+    l.tracking = { carrier: 'DHL', carrierName: l.shipment.mode === 'sandbox' ? 'DHL (sandbox)' : 'DHL', number, inPayPal: !!l.tracking?.inPayPal, at: Date.now(), auto: true };
+    persist();
+    pushTrackingToPayPal(l);
+  }
+  return l.shipment;
+}
+async function pushTrackingToPayPal(l) {
+  if (l.tracking?.inPayPal || !l.capture?.orderId || !l.capture?.id) return;
+  try {
+    await pp('POST', `/v2/checkout/orders/${l.capture.orderId}/track`, { capture_id: l.capture.id, tracking_number: l.tracking.number, carrier: 'DHL', notify_payer: true });
+    l.tracking.inPayPal = true; persist();
+  } catch (e) { console.error('paypal track', e.message); }
+}
+// The status right now, worked out from the clock (sandbox) or from the carrier (real).
+function trackOf(l) {
+  const sm = ensureShipment(l); if (!sm) return null;
+  const now = Date.now();
+  const at = { paid: l.soldAt, label: sm.labelAt };
+  if (sm.mode === 'sandbox' && sm.labelAt) for (const [k, m] of Object.entries(SANDBOX_AFTER)) if (now >= sm.labelAt + m * MIN * DEMO_CLOCK) at[k] = sm.labelAt + m * MIN * DEMO_CLOCK;
+  for (const e of sm.events || []) at[e.key] = at[e.key] || e.at; // real carrier events
+  const done = STEPS.filter((x) => at[x.key]);
+  const cur = done[done.length - 1] || STEPS[0];
+  const city = HUBS[l.country] || [];
+  const where = { dropped: l.ship?.city ? 'Post office' : '', transit: city[1] || '', out: l.ship?.city || '', delivered: l.ship?.city || '' };
+  const events = done.map((x) => ({ key: x.key, label: x.label, at: at[x.key], where: where[x.key] || '' })).reverse();
+  // a simple promise like the shops give: 2 days after it is handed over
+  const handed = at.dropped || (at.label ? at.label + 2 * 3600e3 : l.soldAt + 24 * 3600e3);
+  const eta = at.delivered || (sm.mode === 'sandbox' && sm.labelAt ? sm.labelAt + SANDBOX_AFTER.delivered * MIN * DEMO_CLOCK : handed + 2 * 86400e3);
+  const say = { paid: 'The seller is packing it', label: 'Packed, waiting for DHL', dropped: 'DHL has it', transit: 'On the way to you', out: 'Arriving today', delivered: 'Delivered' }[cur.key];
+  return {
+    carrier: 'DHL', number: sm.number, sandbox: sm.mode === 'sandbox', inPayPal: !!l.tracking?.inPayPal,
+    status: cur.key, say, eta, delivered: !!at.delivered,
+    steps: STEPS.map((x) => ({ key: x.key, label: x.label, at: at[x.key] || null })), events,
+  };
+}
+
 // ---------- shapes sent to the page ----------
 function stats(uid) {
   const sold = listings.filter((l) => l.status === 'sold' && l.sellerId === uid);
@@ -290,6 +353,7 @@ const full = (l, viewer) => ({
   buyer: l.buyerId ? person(l.buyerId) : null, mine: viewer === l.sellerId, boughtByMe: !!viewer && viewer === l.buyerId,
   reviews: l.status === 'sold' ? { buyer: l.reviews?.buyer || null, seller: l.reviews?.seller || null } : null,
   soldAt: l.soldAt || null, tracking: (viewer === l.sellerId || viewer === l.buyerId) ? l.tracking || null : null,
+  track: l.status === 'sold' && viewer && (viewer === l.sellerId || viewer === l.buyerId) ? trackOf(l) : null,
 });
 
 // ---------- app ----------
@@ -394,6 +458,7 @@ app.get('/api/me', (q, s) => {
     ...w, found: w.matches.map((m) => ({ ...m, listing: listings.find((l) => l.id === m.listingId) })).filter((m) => m.listing?.status === 'open').map((m) => ({ ...m, listing: card(m.listing) })),
   }));
   const bought = listings.filter((l) => l.buyerId === u.id && l.photo).sort((a, b) => b.soldAt - a.soldAt).map((l) => full(l, u.id));
+  // (each bought item carries .track: status, steps, events, eta)
   s.json({ user: { ...u, ...stats(u.id) }, mine, looking, bought });
 });
 
@@ -487,7 +552,7 @@ app.get('/api/listings/:id/ship', wrap(async (q, s) => {
   const labelUrl = `${origin(q)}/label/${sh.labelKey}`;
   const qr = await QRCode.toString(labelUrl, { type: 'svg', margin: 0, color: { dark: '#0a0a0c', light: '#0000' }, errorCorrectionLevel: 'M' });
   const { labelKey, ...shipOut } = sh;
-  s.json({ item: card(l), buyer: person(l.buyerId), ship: shipOut, qr, labelUrl, tracking: l.tracking || null, paidAt: l.soldAt, from: u.address || null });
+  s.json({ item: card(l), buyer: person(l.buyerId), ship: shipOut, qr, labelUrl, tracking: l.tracking || null, track: trackOf(l), paidAt: l.soldAt, from: u.address || null });
 }));
 const CARRIERS = { DHL: 'DHL', DEUTSCHE_DE: 'Deutsche Post', HERMES: 'Hermes', DPD: 'DPD', GLS: 'GLS', UPS: 'UPS' };
 app.post('/api/listings/:id/track', wrap(async (q, s) => {
@@ -605,11 +670,13 @@ app.get('/label/:key', wrap(async (q, s) => {
   const key = String(q.params.key);
   const l = listings.find((x) => x.status === 'sold' && x.ship?.labelKey && x.ship.labelKey === key);
   if (!l) return s.status(404).type('html').send('<!doctype html><meta name="viewport" content="width=device-width"><p style="font:16px system-ui;padding:24px">This label does not exist.</p>');
+  const sm = ensureShipment(l);
+  if (sm && !sm.labelAt) { sm.labelAt = Date.now(); persist(); }
   const sh = l.ship; const seller = userOf(l.sellerId) || {}; const fa = seller.address || {};
   const addr = (name, a) => [name, a.line1, a.line2, [a.zip, a.city].filter(Boolean).join(' '), COUNTRIES[a.country]?.name]
     .filter((x) => x && String(x).trim()).map(esc).join('<br>');
   const qr = await QRCode.toString(`${origin(q)}/label/${key}`, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' });
-  const tr = l.tracking;
+  const tr = l.tracking; const sbx = sm?.mode === 'sandbox';
   s.type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Label ${esc(sh.code)}</title><style>
 @page{size:100mm 150mm;margin:0}
@@ -624,7 +691,7 @@ app.get('/label/:key', wrap(async (q, s) => {
 .k{font-size:2.5mm;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#555;margin-bottom:1mm}
 .from{font-size:3.1mm;line-height:1.35}
 .to{border:.6mm solid #0a0a0c;padding:3mm 3.5mm;font-size:5mm;line-height:1.3;font-weight:600}
-.trk{font-size:3.3mm;line-height:1.4}
+.trk{font-size:3.3mm;line-height:1.4}.trk .num{font:700 4.2mm ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em}
 .stamp{border:.4mm dashed #888;height:15mm;display:flex;align-items:center;justify-content:center;font-size:2.7mm;color:#666;text-align:center;padding:0 3mm}
 .row{display:flex;gap:4mm;align-items:flex-end;margin-top:auto}
 .row svg{width:28mm;height:28mm;flex:0 0 28mm}
@@ -636,7 +703,7 @@ app.get('/label/:key', wrap(async (q, s) => {
   <div class="top"><span class="brand">Homing</span><span class="code">${esc(sh.code)}</span></div>
   <div><div class="k">From</div><div class="from">${addr(seller.fullName || seller.name, fa)}</div></div>
   <div class="to"><div class="k">To</div>${addr(sh.name, sh)}</div>
-  ${tr ? `<div class="trk"><div class="k">Tracking</div><b>${esc(tr.carrierName)}</b> ${esc(tr.number)}</div>` : '<div class="stamp">Postage: stick the carrier stamp here</div>'}
+  ${tr ? `<div class="trk"><div class="k">${sbx ? 'Parcel number (sandbox test, not real postage)' : 'Parcel number'}</div><b>DHL</b> <span class="num">${esc(tr.number)}</span></div>` : ''}
   <div class="row">${qr}<div class="meta"><b>${esc(l.title)}</b><br>Paid with PayPal · ${esc(new Date(l.soldAt).toLocaleDateString('en-GB'))}<br>Order ${esc(sh.code)}</div></div>
 </div></body></html>`);
 }));
