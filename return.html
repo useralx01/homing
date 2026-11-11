@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homing</title>
+<style>body{font:17px/1.5 Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;color:#0b57d0;background:#fff}</style></head>
+<body><p id="m">Signing you in…</p>
+<script>
+// PayPal sends the sign-in back here (it only allows public https links).
+// This page hands the code straight to the Homing app it came from. Only local addresses are allowed.
+(function () {
+  var q = new URLSearchParams(location.search), st = q.get('state') || '', o = '';
+  try { o = atob((st.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/')); } catch (e) {}
+  var ok = /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(o);
+  if (!ok) { document.getElementById('m').textContent = 'This sign-in link is not for Homing.'; return; }
+  location.replace(o + '/auth/paypal/return' + location.search);
+})();
+</script></body></html>
