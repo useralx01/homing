@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/app.css?v=4">
 </head>
 <body>
 <header class="bar">
@@ -66,6 +66,7 @@
     <div class="result" id="result" hidden>
       <div class="stage" id="stage">
         <figure class="item">
+          <span class="halo" aria-hidden="true"></span>
           <img id="itemImg" alt="">
           <figcaption>
             <b id="itemTitle"></b>
@@ -74,6 +75,15 @@
         </figure>
         <svg class="wires" id="wires" aria-hidden="true"></svg>
         <ol class="matches" id="matches"></ol>
+      </div>
+      <div class="steps" id="steps" aria-live="polite" hidden>
+        <div class="track"><i id="stepBar"></i></div>
+        <ol>
+          <li data-s="0">Reading the photo</li>
+          <li data-s="1">Checking <span id="nPeople">everyone</span> who's looking</li>
+          <li data-s="2">Writing each person a message</li>
+          <li data-s="3">Making their PayPal checkouts</li>
+        </ol>
       </div>
       <p class="status" id="status"></p>
     </div>
@@ -125,7 +135,7 @@
       <span class="m-why"></span>
       <q class="m-msg"></q>
     </div>
-    <span class="m-score"></span>
+    <span class="m-fit"><span class="m-score"></span><span class="meter"><i></i></span></span>
   </li>
 </template>
 
@@ -142,11 +152,12 @@
           <div><h4>About the item</h4><ul class="o-facts"></ul></div>
         </div>
       </details>
+      <div class="o-fit"><span class="meter"><i></i></span><span class="o-fitn"></span></div>
       <div class="o-act"></div>
     </div>
   </li>
 </template>
 
-<script src="/app.js" type="module"></script>
+<script src="/app.js?v=5" type="module"></script>
 </body>
 </html>
