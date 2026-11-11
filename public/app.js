@@ -24,20 +24,20 @@ function countUp(el, to, c, delay = 650) {
 const dot = (kind, title, text = '', cls = '') => `<div class="dotempty ${cls}"><img src="/img/dot-${kind}.webp" alt="" width="160" height="160"><b>${title}</b>${text ? `<p>${text}</p>` : ''}</div>`;
 function dotSwap(id, kind) { const im = $(id + ' img'); if (!im || im.dataset.k === kind) return; im.dataset.k = kind; im.src = `/img/dot-${kind}.webp`; im.classList.remove('swap'); void im.offsetWidth; im.classList.add('swap'); }
 // chips: the selected fill slides between them
-function movePill(box) {
+function movePill(box, quiet) {
   if (!box) return;
   let p = box.querySelector(':scope > .pill');
   const b = box.querySelector('button[aria-checked="true"]');
   if (!b || !b.offsetWidth) { if (p) { p.style.opacity = '0'; p.dataset.on = ''; } return; }
   if (!p) { p = document.createElement('i'); p.className = 'pill'; box.prepend(p); box.classList.add('has-pill'); }
   const first = !p.dataset.on;
-  if (first) p.style.transition = 'none';
+  if (first || quiet) p.style.transition = 'none';
   p.style.width = b.offsetWidth + 'px'; p.style.height = b.offsetHeight + 'px';
   p.style.transform = `translate(${b.offsetLeft}px,${b.offsetTop}px)`; p.style.opacity = '1'; p.dataset.on = '1';
-  if (first) { if (!REDUCE) p.animate([{ scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1 }], { duration: 420, easing: SPRING }); requestAnimationFrame(() => requestAnimationFrame(() => (p.style.transition = ''))); }
+  if (first || quiet) { if (!REDUCE && !quiet) p.animate([{ scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1 }], { duration: 420, easing: SPRING }); requestAnimationFrame(() => requestAnimationFrame(() => (p.style.transition = ''))); }
 }
 document.addEventListener('click', (e) => { const b = e.target.closest('.chips button'); if (b) { movePill(b.parentElement); haptic('light'); } });
-addEventListener('resize', () => $$('.chips').forEach(movePill));
+addEventListener('resize', () => $$('.chips').forEach((b) => movePill(b, true)));
 try { me = JSON.parse(localStorage.getItem('homing.user') || 'null'); } catch {}
 
 const api = async (url, opts = {}) => {
@@ -70,8 +70,11 @@ const show = (name) => {
   $('#back').classList.toggle('off', name === 'home');
   $('#top').classList.toggle('at-home', name === 'home');
   $('#sheet').hidden = true; document.body.classList.remove('locked');
+  $('#side').hidden = name === 'signin';
+  const sec = { posted: 'sell', found: 'buy', item: 'browse', user: 'board', ship: 'me', paid: 'me' }[name] || name;
+  $$('#side a').forEach((a) => { const on = a.dataset.nav === sec; a.classList.toggle('on', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
   window.scrollTo(0, 0);
-  requestAnimationFrame(() => $$(`[data-screen="${name}"] .chips`).forEach(movePill));
+  requestAnimationFrame(() => $$(`[data-screen="${name}"] .chips`).forEach((b) => movePill(b, true)));
 };
 let depth = 0, skipVT = false;
 // forward slides in from the right, back slides back
@@ -113,7 +116,10 @@ async function route() {
   stopWaiting();
   refreshBadge();
   switch (name) {
-    case 'sell': return show('sell');
+    case 'sell':
+      sellPreview();
+      api(`/api/pulse?country=${me.country}`).then((p) => ($('#pvLook').textContent = `${p.looking} people are looking in ${meta.countries[me.country].name}`)).catch(() => {});
+      return show('sell');
     case 'posted': return pending ? show('posted') : (location.hash = 'sell');
     case 'buy': return openBuy();
     case 'found': return lastFound ? show('found') : (location.hash = 'buy');
@@ -145,6 +151,7 @@ function setupForUser() {
   const cn = meta.countries[me.country].name;
   $('#wCountry').textContent = cn + ' only';
   $('#bCountry').textContent = cn + ' only';
+  $('#sideCountry').textContent = cn + ' only';
   $$('.cur').forEach((c) => { c.textContent = sym(); c.nextElementSibling.style.paddingLeft = 18 + sym().length * 11 + 'px'; });
 }
 
@@ -153,7 +160,10 @@ function openHome() {
   $('#hello').textContent = `Hi ${me.name}.`;
   api(`/api/pulse?country=${me.country}`).then((p) => { $('#pulseTxt').innerHTML = `<b>${p.forSale}</b> for sale · <b>${p.looking}</b> people looking in ${esc(meta.countries[me.country].name)}`; $('#pulse').hidden = false; }).catch(() => {});
   show('home');
-  api(`/api/listings?country=${me.country}`).then((l) => window.shelf?.('shelfHome', l)).catch(() => {});
+  api(`/api/listings?country=${me.country}`).then((l) => {
+    window.shelf?.('shelfHome', l);
+    $('#jiRows').innerHTML = l.slice(0, 5).map((x) => `<li><a href="#item/${esc(x.id)}"><img src="${esc(x.photo)}" alt=""></a><a class="t" href="#item/${esc(x.id)}"><b>${esc(x.title)}</b><small>${esc(x.category || '')} · ${ago(x.at)}</small></a><span class="act"><b class="jp">${money(x.price, x.currency)}</b></span></li>`).join('');
+  }).catch(() => {});
 }
 async function refreshBadge() {
   if (!me) return;
@@ -161,6 +171,7 @@ async function refreshBadge() {
     const d = await api('/api/me');
     const n = todo(d);
     $('#homeCount').hidden = !n; $('#homeCount').textContent = n;
+    $('#sideCount').hidden = !n; $('#sideCount').textContent = n;
     $('#meDot').hidden = !n;
   } catch {}
 }
@@ -195,7 +206,7 @@ $('#photo').onchange = (e) => {
   shotUrl = URL.createObjectURL(f);
   $('#shotImg').src = shotUrl;
   $('#shot').classList.add('has');
-  checkSell();
+  checkSell(); sellPreview();
 };
 function checkSell() {
   const miss = [];
@@ -211,6 +222,15 @@ function checkSell() {
   $('#sellNeed').textContent = miss.length ? 'Still needs ' + names(miss) + '.' : '';
 }
 sellForm.addEventListener('input', checkSell);
+function sellPreview() {
+  const t = $('#sTitle').value.trim(), pr = Number($('#sPrice').value);
+  $('#pvT').textContent = t || 'What is it'; $('#pvP').textContent = pr >= 1 ? money(pr) : sym() + '–';
+  const has = !!shotUrl && $('#shot').classList.contains('has');
+  $('#pvImg').hidden = !has; if (has && $('#pvImg').src !== shotUrl) $('#pvImg').src = shotUrl;
+  $('#pvPh').hidden = has;
+}
+sellForm.addEventListener('input', sellPreview);
+sellForm.addEventListener('click', () => requestAnimationFrame(sellPreview));
 
 let pending = null, waitT = null, pollT = null;
 function stopWaiting() {
@@ -330,12 +350,32 @@ function noBuyer(lid, why) {
 
 // ---------- buy ----------
 const buyForm = $('#buyForm');
-function openBuy() { show('buy'); }
+function openBuy() { show('buy'); buyPreview(); }
 function checkBuy() {
   const max = Number($('#wMax').value), min = Number($('#wMin').value) || 0;
   $('#find').disabled = !($('#wWhat').value.trim().length >= 3 && picked($('#wCats')) && max >= 1 && max >= min);
 }
 buyForm.addEventListener('input', checkBuy);
+const catCache = {};
+let bpT;
+function buyPreview() {
+  clearTimeout(bpT);
+  bpT = setTimeout(async () => {
+    const cat = picked($('#wCats')), grid = $('#bpGrid'), none = $('#bpNone');
+    if (!cat) { grid.innerHTML = ''; none.innerHTML = dot('hello', 'Pick a category', 'You will see what is already for sale, right here.', 'sm'); $('#bpHead').textContent = 'Already for sale'; return; }
+    catCache[cat] ||= api(`/api/listings?country=${me.country}&category=${encodeURIComponent(cat)}`).catch(() => []);
+    let items = await catCache[cat];
+    const min = Number($('#wMin').value) || 0, max = Number($('#wMax').value) || Infinity;
+    items = items.filter((l) => l.price >= min && l.price <= max);
+    const words = $('#wWhat').value.toLowerCase().split(/[^a-z0-9äöüß]+/).filter((w) => w.length >= 3);
+    const hit = items.filter((l) => words.some((w) => l.title.toLowerCase().includes(w)));
+    if (hit.length) items = hit;
+    $('#bpHead').textContent = items.length ? `Already for sale · ${items.length}` : 'Already for sale';
+    fillGrid(grid, items.slice(0, 6));
+    none.innerHTML = items.length ? '' : dot('search', 'Nothing like it yet', 'Post your card and it comes to you the moment someone sells one.', 'sm');
+  }, 220);
+}
+buyForm.addEventListener('input', buyPreview);
 let lastFound = null;
 buyForm.onsubmit = async (e) => {
   e.preventDefault();
@@ -382,17 +422,31 @@ function fillGrid(ul, items) {
     ul.append(li);
   });
 }
-let browseCat = '';
+let browseCat = '', browseQ = '', browseItems = [];
+function browseFilter() {
+  const min = Number($('#fMin').value) || 0, max = Number($('#fMax').value) || Infinity;
+  const words = browseQ.toLowerCase().split(/\s+/).filter(Boolean);
+  const items = browseItems.filter((l) => l.price >= min && l.price <= max && words.every((w) => (l.title + ' ' + (l.category || '')).toLowerCase().includes(w)));
+  fillGrid($('#grid'), items);
+  $('#bCount').textContent = items.length ? items.length + ' for sale' : '';
+  $('#bQ').hidden = !browseQ;
+  $('#bQ').innerHTML = browseQ ? `Results for “${esc(browseQ)}” <button type="button" class="textbtn" id="bQx">Clear</button>` : '';
+  $('#bQx')?.addEventListener('click', () => { browseQ = ''; $('#tq').value = ''; browseFilter(); });
+  const e = $('#bEmpty');
+  e.hidden = items.length > 0;
+  e.innerHTML = dot('sleep', 'Nothing for sale yet', browseQ ? `Nothing matches “${esc(browseQ)}” in ${esc(meta.countries[me.country].name)} right now.` : `${browseCat ? 'Nothing in this category' : 'Nothing'} in ${esc(meta.countries[me.country].name)} right now. Homing only shows things in your country.`);
+}
+['#fMin', '#fMax'].forEach((id) => $(id).addEventListener('input', browseFilter));
+// top bar search: "/" to jump in, Enter shows matches in Browse, Esc clears
+$('#tsearch').addEventListener('submit', (e) => { e.preventDefault(); browseQ = $('#tq').value.trim(); if (location.hash === '#browse') openBrowse(); else location.hash = 'browse'; });
+$('#tq').addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#tq').value = ''; $('#tq').blur(); } });
+document.addEventListener('keydown', (e) => { if (e.key === '/' && !e.target.closest('input,textarea') && !$('#top').hidden) { e.preventDefault(); $('#tq').focus(); } });
 async function openBrowse() {
   show('browse');
   if (!$('#grid').children.length || $('#grid').dataset.cat !== browseCat) $('#grid').innerHTML = '<li><span class="gcard sk"></span></li>'.repeat(6);
   $('#grid').dataset.cat = browseCat;
-  const items = await api(`/api/listings?country=${me.country}&category=${encodeURIComponent(browseCat)}`).catch(() => []);
-  fillGrid($('#grid'), items);
-  $('#bCount').textContent = items.length ? items.length + ' for sale' : '';
-  const e = $('#bEmpty');
-  e.hidden = items.length > 0;
-  e.innerHTML = dot('sleep', 'Nothing for sale yet', `${browseCat ? 'Nothing in this category' : 'Nothing'} in ${esc(meta.countries[me.country].name)} right now. Homing only shows things in your country.`);
+  browseItems = await api(`/api/listings?country=${me.country}&category=${encodeURIComponent(browseCat)}`).catch(() => []);
+  browseFilter();
 }
 
 // ---------- item ----------
@@ -509,6 +563,8 @@ async function openBoard() {
   const key = boardBy === 'sellers' ? 'sold' : 'bought';
   const top = rows.length >= 3 ? rows.slice(0, 3) : [];
   $('#podium').innerHTML = top.length ? [1, 0, 2].map((i) => { const u = top[i]; return `<a class="pod p${i + 1}" href="#user/${u.id}">${av(u.name, i ? 'lg' : 'xl')}<span class="medal">${i + 1}</span><b>${esc(u.name)}</b><small>${u[key]} ${key}</small><span class="ps">${u.stars ? STAR + u.stars.toFixed(1) : ''}</span></a>`; }).join('') : '';
+  $('#rBody').innerHTML = rows.map((u, i) => `<tr class="${u.id === me.id ? 'you' : ''}"><td class="n">${i + 1}</td><td><a href="#user/${u.id}">${av(u.name)}<b>${esc(u.name)}</b></a></td><td>${u.sold}</td><td>${u.bought}</td><td class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</td><td><a href="#user/${u.id}" aria-label="Open ${esc(u.name)}">${CHEV}</a></td></tr>`).join('')
+    || `<tr><td colspan="6">${dot('hello', 'No deals yet', 'The first deal in your country puts you on top.', 'sm')}</td></tr>`;
   rows = rows.slice(top.length);
   $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${u.id}"><span class="n">${i + 1 + top.length}</span>${av(u.name)}
     <span class="t"><b>${esc(u.name)}</b><small>${u.sold} sold · ${u.bought} bought</small></span>
@@ -521,7 +577,7 @@ async function openBoard() {
   meta = await api('/api/meta');
   if (!me) api('/api/listings?country=DE').then((l) => window.shelf?.('shelfIn', l)).catch(() => {});
   chips($('#sCats'), { onPick: checkSell });
-  chips($('#wCats'), { onPick: checkBuy });
+  chips($('#wCats'), { onPick: () => { checkBuy(); buyPreview(); } });
   chips($('#bCats'), { all: true, onPick: (c) => { browseCat = c; openBrowse(); } });
   // back from PayPal
   const q = new URLSearchParams(location.search);

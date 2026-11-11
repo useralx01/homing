@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Inter+Tight:wght@600..900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/app.css?v=59">
+<link rel="stylesheet" href="/app.css?v=63">
 <link rel="stylesheet" href="/intro.css?v=7">
 </head>
 <body>
@@ -26,9 +26,19 @@
   <button class="back" id="back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
   <a class="brand" href="#home"><img src="/logo-blue.svg" alt="" width="26" height="26">Homing</a>
   <span class="ttl" id="topTtl" aria-hidden="true"></span>
+  <form class="tsearch" id="tsearch" role="search" autocomplete="off"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg><input id="tq" type="search" placeholder="Search for anything near you" aria-label="Search"><kbd>/</kbd></form>
   <a class="mebtn" href="#me" id="meBtn" aria-label="My stuff"><span class="av" id="meAv"></span><i class="dot" id="meDot" hidden></i></a>
 </header>
 
+<nav class="side" id="side" aria-label="Main" hidden>
+  <a href="#home" data-nav="home"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4 10.5L12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></svg><span>Home</span></a>
+  <a href="#sell" data-nav="sell"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle class="h2" cx="12" cy="12.5" r="3.3"/></svg><span>Sell</span></a>
+  <a href="#buy" data-nav="buy"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle class="f" cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg><span>Buy</span></a>
+  <a href="#browse" data-nav="browse"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect class="f" x="4" y="4" width="7" height="7" rx="1.6"/><rect class="f" x="13" y="4" width="7" height="7" rx="1.6"/><rect class="f" x="4" y="13" width="7" height="7" rx="1.6"/><rect class="f" x="13" y="13" width="7" height="7" rx="1.6"/></svg><span>Browse</span></a>
+  <a href="#board" data-nav="board"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4"/><path class="f" d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg><span>Leaderboard</span></a>
+  <a href="#me" data-nav="me"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle class="f" cx="12" cy="8" r="4"/><path class="f" d="M4 21a8 8 0 0 1 16 0z"/></svg><span>My stuff</span><i class="count" id="sideCount" hidden></i></a>
+  <p class="side-foot"><span class="flag" id="sideCountry"></span><small>Paid with PayPal · checked by AI</small></p>
+</nav>
 <main id="app">
 
   <!-- SIGN IN -->
@@ -54,6 +64,7 @@
       <a class="big" href="#browse"><span class="lbl"><b>Browse</b><small>All for sale near you.</small></span><span class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span><img class="ren" src="/img/browse.webp" alt=""></a>
     </nav>
     <div class="near"><h3>For sale near you</h3><a href="#browse">See all</a></div>
+    <div class="justin" id="justIn"><h3>Just posted</h3><ul class="rows" id="jiRows"></ul></div>
     <div class="stage" id="shelfHome"><a class="tag" id="shelfHomeTag" href="#"><b></b><span></span></a></div>
     <div class="links">
       <a href="#board"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>Leaderboard</a>
@@ -85,6 +96,11 @@
       <p class="need" id="sellNeed"></p>
       <p class="err" id="sellErr" role="alert"></p>
     </form>
+    <aside class="sprev" aria-label="Preview">
+      <p class="pv-l">How buyers will see it</p>
+      <div class="gcard pv" id="pvCard"><img id="pvImg" alt=""><span class="pv-ph" id="pvPh"><img src="/img/sell.webp" alt=""></span><span class="glass"><b id="pvT">What is it</b><span id="pvP">€–</span></span></div>
+      <ul class="pv-steps"><li><b>AI checks the photo</b><span>It must show what you wrote.</span></li><li><b id="pvLook">Sent to people looking</b><span>The moment you post, matches hear about it.</span></li><li><b>Paid with PayPal</b><span>You get the buyer's address and a shipping code.</span></li></ul>
+    </aside>
   </section>
 
   <!-- SELL: after posting -->
@@ -113,6 +129,7 @@
       <button class="primary" id="find" type="submit" disabled>Find it</button>
       <p class="err" id="buyErr" role="alert"></p>
     </form>
+    <aside class="bprev" aria-label="Already for sale"><h3 id="bpHead">Already for sale</h3><ul class="grid" id="bpGrid"></ul><div id="bpNone"></div></aside>
   </section>
 
   <!-- BUY: result -->
@@ -128,7 +145,9 @@
   <!-- BROWSE -->
   <section class="screen browse" data-screen="browse" hidden>
     <div class="browse-head"><h2>Browse</h2><span class="n" id="bCount"></span><span class="flag" id="bCountry"></span></div>
+    <p class="bq" id="bQ" hidden></p>
     <div class="chips scroll" id="bCats"></div>
+    <div class="frail"><span class="frail-l">Price</span><div class="range"><span class="money"><i class="cur"></i><input id="fMin" type="number" inputmode="decimal" min="0" placeholder="0" aria-label="Lowest price"></span><em>to</em><span class="money"><i class="cur"></i><input id="fMax" type="number" inputmode="decimal" min="0" placeholder="Any" aria-label="Highest price"></span></div></div>
     <ul class="grid" id="grid"></ul>
     <p class="empty" id="bEmpty" hidden></p>
   </section>
@@ -190,6 +209,7 @@
     <div class="seg" id="seg" role="tablist"><button data-by="sellers" class="on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0z"/><circle class="h" cx="8" cy="8" r="1.6"/></svg>Sellers</button><button data-by="buyers"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M5 8h14l-1 12.2a1 1 0 0 1-1 .8H7a1 1 0 0 1-1-.8z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>Buyers</button></div>
     <div class="podium" id="podium"></div>
     <ol class="rank" id="rank"></ol>
+    <table class="rtable" id="rTable"><thead><tr><th>#</th><th>Person</th><th>Sold</th><th>Bought</th><th>Rating</th><th></th></tr></thead><tbody id="rBody"></tbody></table>
     <p class="fine">Only real deals count. You can only review someone after you bought from them or sold to them.</p>
   </section>
   <!-- PERSON -->
@@ -208,6 +228,6 @@
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script type="module" src="/shelf-boot.js?v=44"></script>
-<script src="/app.js?v=54" type="module"></script>
+<script src="/app.js?v=56" type="module"></script>
 </body>
 </html>
