@@ -1,5 +1,5 @@
 {
-  "name": "sought",
+  "name": "homing",
   "version": "1.0.0",
   "description": "Snap what you sell. AI hands it to the people already looking for it, with a PayPal button attached.",
   "main": "server.mjs",

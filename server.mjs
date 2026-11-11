@@ -1,4 +1,4 @@
-// Sought: snap what you sell, AI hands it to the people already looking for it,
+// Homing: snap what you sell, AI hands it to the people already looking for it,
 // each gets a short message, the full details, and a PayPal button.
 import 'dotenv/config';
 import express from 'express';
@@ -151,7 +151,7 @@ async function createOrder(offer, want, match) {
   const unit = {
     reference_id: offer.id,
     custom_id: `${offer.id}:${want.id}`,
-    description: `${offer.item.title} (Sought)`.slice(0, 127),
+    description: `${offer.item.title} (Homing)`.slice(0, 127),
     amount: { currency_code: CURRENCY, value: Number(offer.item.price).toFixed(2) },
   };
   if (offer.sellerPaypal) unit.payee = { email_address: offer.sellerPaypal };
@@ -161,7 +161,7 @@ async function createOrder(offer, want, match) {
     payment_source: {
       paypal: {
         experience_context: {
-          brand_name: 'Sought',
+          brand_name: 'Homing',
           user_action: 'PAY_NOW',
           shipping_preference: 'NO_SHIPPING',
           return_url: `${BASE_URL}/paypal/return?offer=${offer.id}&want=${want.id}`,
@@ -285,4 +285,4 @@ app.post('/api/reset', (_q, s) => {
   s.json({ ok: true });
 });
 
-app.listen(PORT, () => console.log(`Sought on ${BASE_URL}  ai=${!!GEMINI_KEY} paypal=${!!(PP_ID && PP_SECRET)}`));
+app.listen(PORT, () => console.log(`Homing on ${BASE_URL}  ai=${!!GEMINI_KEY} paypal=${!!(PP_ID && PP_SECRET)}`));

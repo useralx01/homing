@@ -1,8 +1,8 @@
-# Sought
+# Homing
 
 **Snap what you sell. AI hands it straight to the people already looking for it, with a PayPal button attached.**
 
-Selling second-hand today is slow on both sides: the seller writes a listing and waits, the buyer browses for days, and then both text back and forth. Sought flips it: buyers say once what they're looking for (and what they care about), sellers take one photo, and the AI delivers the item to exactly the right people in a few seconds, each with a ready PayPal checkout. First to pay gets it.
+Selling second-hand today is slow on both sides: the seller writes a listing and waits, the buyer browses for days, and then both text back and forth. Homing flips it: buyers say once what they're looking for (and what they care about), sellers take one photo, and the AI delivers the item to exactly the right people in a few seconds, each with a ready PayPal checkout. First to pay gets it.
 
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/).
 
@@ -34,8 +34,8 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/).
 Requirements: Node 18+, a PayPal developer account (free sandbox) and a Gemini API key (free tier works).
 
 ```bash
-git clone https://github.com/iamlicht1f1-maker/sought.git
-cd sought
+git clone https://github.com/iamlicht1f1-maker/homing.git
+cd homing
 npm install
 cp .env.example .env   # then fill in PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, GEMINI_API_KEY
 npm start
@@ -44,7 +44,7 @@ npm start
 Open http://localhost:4321.
 
 - **Sell**: add any photo + one line, press *Find the people looking*.
-- **Who's looking**: 8 demo buyers are pre-loaded (Mara wants a white PS5 controller, Lea a film camera, Tim a road bike, …). Open anyone's inbox to see what they received.
+- **Who's looking**: 10 demo buyers are pre-loaded (Mara wants a white PS5 controller, Lea a film camera, Tim a road bike, …). Open anyone's inbox to see what they received.
 - **I'm looking**: add yourself as a buyer in plain words.
 - **Pay**: click *Pay with PayPal* and log in with a **PayPal sandbox personal account** (create one under *Testing Tools → Sandbox Accounts* in the PayPal developer dashboard). No real money moves.
 - `POST /api/reset` restores the demo buyers.
