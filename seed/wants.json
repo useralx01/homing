@@ -1,0 +1,82 @@
+[
+  {
+    "id": "w_mara",
+    "name": "Mara",
+    "said": "Looking for a PS5 controller for my brother, white if possible, up to 40 euro. Please no stick drift, he's had that twice.",
+    "want": "PS5 DualSense controller",
+    "maxPrice": 40,
+    "city": "Stuttgart",
+    "careAbout": ["no stick drift", "white colour", "charging cable included"],
+    "note": "It's a birthday present, so it should look clean."
+  },
+  {
+    "id": "w_jonas",
+    "name": "Jonas",
+    "said": "Need any PlayStation 5 controller cheap, color doesn't matter, max 35. Shipping is fine.",
+    "want": "PS5 controller",
+    "maxPrice": 35,
+    "city": "Berlin",
+    "careAbout": ["works properly", "can be shipped"],
+    "note": "Color doesn't matter at all."
+  },
+  {
+    "id": "w_lea",
+    "name": "Lea",
+    "said": "Searching a film camera for my first roll, something like a Canon AE-1 or similar, max 150, must have a working light meter.",
+    "want": "35mm film camera (Canon AE-1 or similar)",
+    "maxPrice": 150,
+    "city": "Munich",
+    "careAbout": ["working light meter", "lens included", "no fungus in lens"],
+    "note": "First film camera, I'd love a quick tip on how to start."
+  },
+  {
+    "id": "w_tim",
+    "name": "Tim",
+    "said": "Want a road bike, frame size 56, under 400. Pickup in Stuttgart only.",
+    "want": "Road bike, frame size 56",
+    "maxPrice": 400,
+    "city": "Stuttgart",
+    "careAbout": ["frame size 56", "pickup in Stuttgart", "no frame cracks"],
+    "note": "I can pick it up this weekend."
+  },
+  {
+    "id": "w_sofia",
+    "name": "Sofia",
+    "said": "I'm looking for the Lego Millennium Falcon set, complete, up to 120 euros. Box isn't important.",
+    "want": "Lego Millennium Falcon set",
+    "maxPrice": 120,
+    "city": "Hamburg",
+    "careAbout": ["complete set", "instructions included"],
+    "note": "Box isn't important."
+  },
+  {
+    "id": "w_ben",
+    "name": "Ben",
+    "said": "Need AirPods Pro, 2nd gen, max 120. Must be original, not fake, and battery should be ok.",
+    "want": "AirPods Pro (2nd generation)",
+    "maxPrice": 120,
+    "city": "Cologne",
+    "careAbout": ["original, not a fake", "battery health ok", "charging case included"],
+    "note": "Had a fake pair once, so I'm careful."
+  },
+  {
+    "id": "w_noah",
+    "name": "Noah",
+    "said": "Looking for a Nintendo Switch OLED, up to 220, with dock. Small scratches ok.",
+    "want": "Nintendo Switch OLED with dock",
+    "maxPrice": 220,
+    "city": "Frankfurt",
+    "careAbout": ["dock included", "screen without cracks"],
+    "note": "Small scratches are fine."
+  },
+  {
+    "id": "w_emma",
+    "name": "Emma",
+    "said": "Searching a mechanical keyboard, 75% layout, under 80, quiet switches please because I share an office.",
+    "want": "Mechanical keyboard, 75% layout",
+    "maxPrice": 80,
+    "city": "Stuttgart",
+    "careAbout": ["quiet switches", "75% layout", "German or US layout stated"],
+    "note": "I share an office, so quiet matters most."
+  }
+]

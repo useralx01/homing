@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sought</title>
+<meta name="description" content="Snap what you sell. AI hands it straight to the people already looking for it, with a PayPal button attached.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="/" data-view="sell"><span class="mark" aria-hidden="true"></span>Sought</a>
+  <nav class="tabs" aria-label="Views">
+    <button data-view="sell" class="on">Sell</button>
+    <button data-view="seek">I'm looking</button>
+    <button data-view="people">Who's looking</button>
+  </nav>
+  <span class="env" id="env"></span>
+</header>
+
+<main>
+  <!-- SELL -->
+  <section class="view" id="view-sell">
+    <div class="sell">
+      <div class="lead">
+        <h1>Snap it.<br>It finds its buyer.</h1>
+        <p>No listing, no browsing, no chatting. One photo goes straight to the people already looking for it, with PayPal ready.</p>
+      </div>
+
+      <form id="sellForm" class="sellform" autocomplete="off">
+        <label class="drop" id="drop">
+          <input type="file" name="photo" id="photo" accept="image/*" capture="environment" hidden>
+          <img id="preview" alt="">
+          <span class="drop-empty">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            <b>Add a photo</b><small>or drop it here</small>
+          </span>
+        </label>
+
+        <div class="fields">
+          <label class="field">
+            <span>What and how much</span>
+            <input name="line" id="line" placeholder="PS5 controller, white, 35 €" required maxlength="200">
+          </label>
+          <details class="more">
+            <summary>Details <small>optional, for people who want to know more</small></summary>
+            <label class="field">
+              <span>Condition, what's included, flaws</span>
+              <textarea name="details" rows="3" placeholder="Barely used, no stick drift, cable included. Small scratch on the back."></textarea>
+            </label>
+            <div class="row2">
+              <label class="field"><span>Your name</span><input name="seller" placeholder="Alex" maxlength="40"></label>
+              <label class="field"><span>Your PayPal email</span><input name="sellerPaypal" type="email" placeholder="optional"></label>
+            </div>
+          </details>
+          <button class="go" id="go" type="submit" disabled>Find the people looking</button>
+          <p class="err" id="sellErr" role="alert"></p>
+        </div>
+      </form>
+    </div>
+
+    <div class="result" id="result" hidden>
+      <div class="stage" id="stage">
+        <figure class="item">
+          <img id="itemImg" alt="">
+          <figcaption>
+            <b id="itemTitle"></b>
+            <span id="itemPrice"></span>
+          </figcaption>
+        </figure>
+        <svg class="wires" id="wires" aria-hidden="true"></svg>
+        <ol class="matches" id="matches"></ol>
+      </div>
+      <p class="status" id="status"></p>
+    </div>
+  </section>
+
+  <!-- SEEK -->
+  <section class="view" id="view-seek" hidden>
+    <div class="seek">
+      <h1>Say what you're after.<br>It comes to you.</h1>
+      <p>Write it like you'd tell a friend: what, how much, and what to watch out for. When someone sells it, you get one short message, the details, and a PayPal button.</p>
+      <form id="seekForm" class="seekform">
+        <label class="field"><span>Your name</span><input name="name" required maxlength="40" placeholder="Mara"></label>
+        <label class="field"><span>What you're looking for</span>
+          <textarea name="text" rows="4" required placeholder="A PS5 controller for my brother, white if possible, up to 40 €. Please no stick drift."></textarea>
+        </label>
+        <button class="go" type="submit">Start looking</button>
+        <p class="err" id="seekErr" role="alert"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- PEOPLE -->
+  <section class="view" id="view-people" hidden>
+    <div class="people-head">
+      <h1>Who's looking right now</h1>
+      <p>Everyone here asked to be found. Tap a person to see their inbox.</p>
+    </div>
+    <ul class="people" id="people"></ul>
+  </section>
+
+  <!-- INBOX -->
+  <section class="view" id="view-inbox" hidden>
+    <div class="inbox-head">
+      <button class="back" data-view="people">← Everyone</button>
+      <h1 id="inboxName"></h1>
+      <p id="inboxWant"></p>
+      <ul class="cares" id="inboxCares"></ul>
+    </div>
+    <div class="banner" id="banner" hidden></div>
+    <ol class="offers" id="offers"></ol>
+  </section>
+</main>
+
+<template id="tplMatch">
+  <li class="match">
+    <span class="av"></span>
+    <div class="m-body">
+      <b class="m-name"></b>
+      <span class="m-why"></span>
+      <q class="m-msg"></q>
+    </div>
+    <span class="m-score"></span>
+  </li>
+</template>
+
+<template id="tplOffer">
+  <li class="offer">
+    <img class="o-img" alt="">
+    <div class="o-main">
+      <div class="o-top"><b class="o-title"></b><span class="o-price"></span></div>
+      <p class="o-msg"></p>
+      <details class="o-details">
+        <summary>Details</summary>
+        <div class="o-grid">
+          <div><h4>What you asked to check</h4><ul class="o-checks"></ul></div>
+          <div><h4>About the item</h4><ul class="o-facts"></ul></div>
+        </div>
+      </details>
+      <div class="o-act"></div>
+    </div>
+  </li>
+</template>
+
+<script src="/app.js" type="module"></script>
+</body>
+</html>
