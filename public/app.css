@@ -550,32 +550,6 @@ input,textarea,select{font-size:17px!important;caret-color:var(--blue)}
 .posts .note,.posts .none{padding:12px 2px;color:var(--faint);font-size:13px;border:0}
 .posts .none{color:var(--muted);font-size:15px}
 .posts .textbtn{display:inline;margin:0;font-size:13px;color:var(--blue);padding:0}
-/* ===== opening: logo draws itself, then the word bounces in ===== */
-.intro{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:#fff;cursor:pointer;transition:opacity .5s var(--e),transform .5s var(--e)}
-.intro.out{opacity:0;transform:scale(1.06);pointer-events:none}
-.in-row{display:flex;align-items:center;gap:12px;transform:translateX(var(--ww,0px))}
-.go .in-row{animation:in-slide .7s cubic-bezier(.34,1.45,.64,1) 1.32s both}
-@keyframes in-slide{to{transform:translateX(0)}}
-.in-logo{width:104px;height:104px;overflow:visible}
-.in-logo .s1,.in-logo .s2,.in-logo .s3,.in-logo .s4{stroke-dasharray:1 2;stroke-dashoffset:1;opacity:0}
-.in-logo .s0{transform-origin:8px 40px;transform:scale(0)}
-.go .in-logo .s0{animation:in-dot .35s cubic-bezier(.34,1.8,.64,1) .02s both}
-.go .in-logo .s1{animation:in-draw .44s cubic-bezier(.5,0,.3,1) .06s forwards}
-.go .in-logo .s2{animation:in-draw .14s ease-out .54s forwards}
-.go .in-logo .s3{animation:in-draw .14s ease-out .68s forwards}
-.go .in-logo .s4{animation:in-draw .36s cubic-bezier(.5,0,.3,1) .82s forwards}
-.go .in-logo{animation:in-land .5s cubic-bezier(.34,1.8,.64,1) 1.18s both;transform-origin:50% 90%}
-@keyframes in-dot{to{transform:scale(1)}}
-@keyframes in-draw{from{opacity:1;stroke-dashoffset:1}to{opacity:1;stroke-dashoffset:0}}
-@keyframes in-land{0%{transform:scale(1)}30%{transform:scale(1.18,.84)}60%{transform:scale(.94,1.08) translateY(-6px)}100%{transform:none}}
-.in-word{display:flex;font-family:"Inter Tight",Inter,sans-serif;font-weight:800;font-size:76px;letter-spacing:-.045em;line-height:1;color:var(--blue)}
-.in-word i{font-style:normal;display:inline-block;opacity:0;transform-origin:50% 100%}
-.go .in-word i{animation:in-letter .5s cubic-bezier(.34,1.6,.64,1) calc(1.5s + var(--i) * 85ms) both}
-.in-word i:nth-child(odd){--r:-14deg}.in-word i:nth-child(even){--r:12deg}
-@keyframes in-letter{0%{opacity:0;transform:translateY(46px) scale(.2) rotate(var(--r))}55%{opacity:1;transform:translateY(-16px) scale(1.12,.9) rotate(calc(var(--r) * -.3))}78%{transform:translateY(3px) scale(.96,1.06)}100%{opacity:1;transform:none}}
-.go .in-word{animation:in-boing .7s cubic-bezier(.34,1.6,.64,1) 2.08s both;transform-origin:50% 100%}
-@keyframes in-boing{0%{transform:none}18%{transform:scale(1.12,.8)}42%{transform:scale(.94,1.12) translateY(-10px)}64%{transform:scale(1.04,.96)}100%{transform:none}}
-@media (max-width:420px){.in-logo{width:80px;height:80px}.in-word{font-size:58px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;animation-delay:0s!important}}
 @media (max-width:1099px){ .big{min-height:128px;padding:20px 22px 18px} .big .lbl{padding-bottom:40px} .big .go{bottom:18px;left:22px} .three{gap:12px;margin-top:22px} .near{margin-top:28px} .home .stage{height:228px} }
 .glass{padding:7px 11px 8px;border-radius:14px;background:rgba(255,255,255,.7)}
