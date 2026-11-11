@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Inter+Tight:wght@600..900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/app.css?v=54">
+<link rel="stylesheet" href="/app.css?v=55">
 <link rel="stylesheet" href="/intro.css?v=3">
 </head>
 <body>
@@ -28,6 +28,7 @@
 <header class="top" id="top" hidden>
   <button class="back" id="back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
   <a class="brand" href="#home"><img src="/logo-blue.svg" alt="" width="26" height="26">Homing</a>
+  <span class="ttl" id="topTtl" aria-hidden="true"></span>
   <a class="mebtn" href="#me" id="meBtn" aria-label="My stuff"><span class="av" id="meAv"></span><i class="dot" id="meDot" hidden></i></a>
 </header>
 
@@ -136,14 +137,17 @@
   <!-- ITEM -->
   <section class="screen item" data-screen="item" hidden>
     <div class="photo"><img id="iImg" alt=""><span class="state" id="iState" hidden></span></div>
-    <div class="i-top"><h2 id="iTitle"></h2><b class="price" id="iPrice"></b></div>
+    <div class="i-head">
+      <small class="i-cat" id="iCat"></small>
+      <h2 id="iTitle"></h2>
+      <b class="price" id="iPrice"></b>
+    </div>
     <a class="seller" id="iSeller" href="#board"></a>
-    <h3>Description</h3>
     <p class="desc" id="iDesc"></p>
     <div class="seen" id="iSeen"></div>
-    <p class="fine" id="iCountry"></p>
+    <ul class="facts"><li><svg viewBox="0 0 24 24"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg><span id="fShip">Pickup or shipping</span></li><li><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span id="iCountry"></span></li><li><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.3-3 7.9-7 9.5-4-1.6-7-5.2-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span id="fPay">Paid safely with PayPal</span></li></ul>
     <div class="buybox" id="iBuy"></div>
-    <div class="buybar" id="iBar" hidden><div class="bb-t"><small id="iBarT"></small><b id="iBarP"></b></div><button class="primary" id="iBarBtn" type="button">Buy now</button></div>
+    <div class="buybar" id="iBar" hidden><button class="primary" id="iBarBtn" type="button"><span>Buy now</span><i aria-hidden="true">·</i><b id="iBarP"></b></button></div>
   </section>
 
   <!-- PAID -->
@@ -204,6 +208,6 @@
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script type="module" src="/shelf-boot.js?v=43"></script>
-<script src="/app.js?v=51" type="module"></script>
+<script src="/app.js?v=52" type="module"></script>
 </body>
 </html>

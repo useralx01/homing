@@ -559,3 +559,42 @@ input,textarea,select{font-size:17px!important;caret-color:var(--blue)}
 /* chip row: never touches the screen edge, also after snapping */
 .chips.scroll{scroll-padding-inline:var(--g);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 var(--g),#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,transparent 0,#000 var(--g),#000 calc(100% - 40px),transparent)}
 .chips.scroll::after{content:"";flex:0 0 calc(var(--g) - 8px)}
+
+/* ===== v8 item page: what it is, what it costs, can I trust it, then one buy button ===== */
+.item .i-head{display:grid;gap:4px;margin-top:22px}
+.i-cat{font-size:12px;font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:var(--blue)}
+.i-cat:empty{display:none}
+.item .i-head h2{font-family:"Inter Tight",Inter,sans-serif;font-size:27px;font-weight:720;line-height:1.15;letter-spacing:-.03em;text-wrap:balance}
+.item .i-head .price{font-family:"Inter Tight",Inter,sans-serif;font-size:26px;font-weight:760;letter-spacing:-.03em;color:var(--blue);margin-top:4px}
+.item .seller{margin:18px 0 18px;padding:12px 0;border-color:rgba(16,40,110,.07)}
+.item .desc{font-size:16.5px;line-height:1.65;color:#3d4560}
+.item .seen{margin-top:14px}
+.facts{list-style:none;margin:20px 0 0;padding:16px 0 0;border-top:1px solid rgba(16,40,110,.07);display:grid;gap:12px}
+.facts li{display:flex;align-items:center;gap:12px;font-size:15px;color:var(--muted)}
+.facts svg{width:20px;height:20px;flex:none;fill:none;stroke:var(--blue);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.facts span:empty{display:none}
+.item .fine{display:none}
+/* one buy button that stays at the bottom, with the price inside it */
+.buybar{left:0;right:0;bottom:0;transform:none;width:auto;display:block;padding:12px max(var(--g),calc(50vw - var(--w) / 2 + var(--g))) calc(12px + env(safe-area-inset-bottom));border-radius:0;
+  background:rgba(255,255,255,.86);box-shadow:0 -1px 0 rgba(16,40,110,.07);animation:rise8 .5s var(--e) .1s both}
+@keyframes rise8{from{opacity:0;transform:translateY(24px)}}
+.buybar .primary{width:100%;height:56px;padding:0 22px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:17px}
+.buybar .primary i{font-style:normal;opacity:.6}
+.buybar .primary b{font-weight:700;font-variant-numeric:tabular-nums}
+.item:has(.buybar:not([hidden])){padding-bottom:104px}
+/* the title slides into the top bar once you scroll past it (phone) */
+.top .ttl{display:none}
+@media (max-width:1099px){
+  .top{position:sticky}
+  .top .ttl{display:block;position:absolute;left:64px;right:64px;top:50%;text-align:center;font-weight:650;font-size:16px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    opacity:0;transform:translateY(calc(-50% + 10px));transition:opacity .22s var(--ui),transform .28s var(--e);pointer-events:none}
+  .top .brand{transition:opacity .2s var(--ui),transform .28s var(--e)}
+  body.ttl-on:has(.item:not([hidden])) .top .ttl{opacity:1;transform:translateY(-50%)}
+  body.ttl-on:has(.item:not([hidden])) .top .brand{opacity:0;transform:translateY(-10px)}
+  .item .i-head{position:relative;margin:-28px calc(var(--g) * -1) 0;padding:22px var(--g) 0;background:var(--bg);border-radius:28px 28px 0 0}
+}
+@media (min-width:1100px){
+  .item .buybar{position:static;padding:0;margin-top:24px;background:none;box-shadow:none;animation:none}
+  .item:has(.buybar:not([hidden])){padding-bottom:0}
+  .item .i-head{margin-top:0}
+}

@@ -325,12 +325,16 @@ async function openBrowse() {
 }
 
 // ---------- item ----------
+// on a phone the title moves into the top bar once it scrolls away, so you never lose what you look at
+const ttlSeen = new IntersectionObserver(([e]) => document.body.classList.toggle('ttl-on', !e.isIntersecting && e.boundingClientRect.top < 60), { rootMargin: '-58px 0px 0px 0px' });
+ttlSeen.observe($('#iTitle'));
 async function openItem(lid) {
   let l;
   try { l = await api(`/api/listings/${lid}?userId=${me.id}`); }
   catch (err) { toast(err.message); location.hash = 'browse'; return; }
   $('#iImg').src = l.photo || ''; $('#iImg').style.viewTransitionName = 'photo';
-  $('#iTitle').textContent = l.title;
+  $('#iTitle').textContent = l.title; $('#topTtl').textContent = l.title;
+  $('#iCat').textContent = l.category || '';
   $('#iPrice').textContent = money(l.price, l.currency);
   const st = $('#iState');
   st.hidden = l.status === 'open'; st.textContent = 'Sold';
@@ -340,7 +344,7 @@ async function openItem(lid) {
   avatar($('.av', $('#iSeller')), s.name);
   $('#iDesc').textContent = l.description;
   $('#iSeen').innerHTML = l.facts.length ? '<em>AI saw in the photo:</em>' + l.facts.map((f) => `<span>${esc(f)}</span>`).join('') : '';
-  $('#iCountry').textContent = `Only for buyers in ${meta.countries[l.country].name}. Ships or hands over inside the country.`;
+  $('#iCountry').textContent = `Only for buyers in ${meta.countries[l.country].name}`;
   const box = $('#iBuy');
   box.innerHTML = '';
   $('#iBar').hidden = true;
@@ -352,7 +356,7 @@ async function openItem(lid) {
     box.innerHTML = '<p class="note">This is yours. It is up for sale.</p><button class="secondary danger">Delete</button>';
     $('button', box).onclick = async () => { await api(`/api/listings/${l.id}`, { method: 'DELETE' }); toast('Deleted.'); location.hash = 'me'; };
   } else {
-    $('#iBar').hidden = false; $('#iBarT').textContent = l.title; $('#iBarP').textContent = money(l.price, l.currency);
+    $('#iBar').hidden = false; $('#iBarP').textContent = money(l.price, l.currency);
     $('#iBarBtn').onclick = () => openSheet();
     const sb = $('#sheetBody');
     sb.innerHTML = `<div class="sh-item"><img src="${esc(l.photo)}" alt=""><div><b>${esc(l.title)}</b><span>${money(l.price, l.currency)} · from ${esc(s.name)}</span></div></div><label class="check"><input type="checkbox" id="readIt"><span><b>I read the description</b><small>Buying is instant. What it says is what you get.</small></span></label>
