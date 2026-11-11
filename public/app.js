@@ -107,7 +107,7 @@ function renderMatches(out) {
   });
   requestAnimationFrame(() => drawWires(out.matches.length));
   const secs = (out.ms / 1000).toFixed(1);
-  $('#status').innerHTML = `Sent to <b>${out.matches.length} ${out.matches.length === 1 ? 'person' : 'people'}</b> in ${secs}s, each with a PayPal button. First to pay gets it.`;
+  $('#status').innerHTML = `Sent to <b>${out.matches.length} ${out.matches.length === 1 ? 'person' : 'people'}</b> in ${secs}s, ${out.matches.length === 1 ? 'with' : 'each with'} a PayPal button. First to pay gets it.`;
   pollSold(out.offer.id);
 }
 

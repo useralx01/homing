@@ -44,9 +44,12 @@ async function gemini(parts, schemaHint) {
   const models = [...new Set([GEMINI_MODEL, ...GEMINI_FALLBACKS])];
   let last;
   for (const m of models) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${GEMINI_KEY}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+    let r;
+    try {
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${GEMINI_KEY}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(20000) });
+    } catch (e) { last = `${m}: ${e.name === 'TimeoutError' ? 'timed out' : e.message}`; if (process.env.DEBUG) console.log('gemini', last); continue; }
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) { last = `${m}: ${j.error?.message || r.status}`; continue; }
+    if (!r.ok) { last = `${m}: ${j.error?.message || r.status}`; if (process.env.DEBUG) console.log('gemini', last); continue; }
     const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
     try { return JSON.parse(text.replace(/^```json\s*|```$/g, '')); } catch { last = `${m}: bad JSON`; }
   }
@@ -83,19 +86,25 @@ ${JSON.stringify({ ...item, seller_line: sellerLine, seller_details: sellerDetai
 These people said they are looking for something (opt-in requests):
 ${JSON.stringify(list)}
 
-For every person whose request this item really fits, return JSON:
+Score EVERY person in the list (return one entry per person, same order), JSON:
 {"matches":[{"id": person id,
-  "score": 0-100 how well it fits,
-  "why": one short sentence (max 12 words) why it fits,
+  "same_kind": true if this item is the kind of thing the person is looking for (colour, small differences don't matter), else false,
+  "score": 0-100 how well it fits (0 if not the same kind),
+  "why": one short sentence (max 12 words) why it fits; use the name, never he/she/her/his,
   "message": a friendly 1-line message to that person from the seller, max 90 characters, mention the price,
   "checks":[{"need": each thing from care_about, "status":"ok"|"warn"|"unknown", "note": max 10 words}]}]}
-Check EVERY person one by one; include everyone looking for this kind of item (different colour or small mismatches only lower the score). Only include people with score >= 60. A price above max_price lowers the score a lot. Be honest in checks: "unknown" if the photo/details don't prove it.`,
+A different colour only lowers the score a little. Be honest in checks: "unknown" if the photo/details don't prove it.`,
   );
   const raw = Array.isArray(res) ? res : res.matches || res.people || [];
   if (process.env.DEBUG) console.log('match raw', JSON.stringify(res).slice(0, 600));
+  const price = Number(item.price) || 0;
   return raw
     .map((m) => ({ ...m, id: String(m.id || m.person_id || '').trim(), score: Number(m.score) || 0 }))
-    .filter((m) => m.score >= 60 && open.some((w) => w.id === m.id))
+    .map((m) => ({ ...m, want: open.find((w) => w.id === m.id) }))
+    .filter((m) => m.want && m.same_kind !== false && m.score >= 50)
+    // budget is a hard rule, checked in code, not left to the model
+    .filter((m) => !price || m.want.maxPrice == null || price <= m.want.maxPrice)
+    .map(({ want, same_kind, ...m }) => m)
     .sort((a, b) => b.score - a.score);
 }
 

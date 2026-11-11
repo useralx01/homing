@@ -6,7 +6,11 @@
     "want": "PS5 DualSense controller",
     "maxPrice": 40,
     "city": "Stuttgart",
-    "careAbout": ["no stick drift", "white colour", "charging cable included"],
+    "careAbout": [
+      "no stick drift",
+      "white colour",
+      "charging cable included"
+    ],
     "note": "It's a birthday present, so it should look clean."
   },
   {
@@ -16,8 +20,37 @@
     "want": "PS5 controller",
     "maxPrice": 35,
     "city": "Berlin",
-    "careAbout": ["works properly", "can be shipped"],
+    "careAbout": [
+      "works properly",
+      "can be shipped"
+    ],
     "note": "Color doesn't matter at all."
+  },
+  {
+    "id": "w_kai",
+    "name": "Kai",
+    "said": "Need a second controller for PS5 so my friend can play too. Up to 45 euro, near Stuttgart, pickup is fine.",
+    "want": "Second PS5 controller",
+    "maxPrice": 45,
+    "city": "Stuttgart",
+    "careAbout": [
+      "works with PS5",
+      "pickup near Stuttgart"
+    ],
+    "note": "Just for couch co-op with a friend."
+  },
+  {
+    "id": "w_nina",
+    "name": "Nina",
+    "said": "Looking for a white DualSense but only up to 25 euro, I am a student.",
+    "want": "White DualSense controller",
+    "maxPrice": 25,
+    "city": "Leipzig",
+    "careAbout": [
+      "white colour",
+      "max 25 euro"
+    ],
+    "note": "Student budget, sorry!"
   },
   {
     "id": "w_lea",
@@ -26,7 +59,11 @@
     "want": "35mm film camera (Canon AE-1 or similar)",
     "maxPrice": 150,
     "city": "Munich",
-    "careAbout": ["working light meter", "lens included", "no fungus in lens"],
+    "careAbout": [
+      "working light meter",
+      "lens included",
+      "no fungus in lens"
+    ],
     "note": "First film camera, I'd love a quick tip on how to start."
   },
   {
@@ -36,7 +73,11 @@
     "want": "Road bike, frame size 56",
     "maxPrice": 400,
     "city": "Stuttgart",
-    "careAbout": ["frame size 56", "pickup in Stuttgart", "no frame cracks"],
+    "careAbout": [
+      "frame size 56",
+      "pickup in Stuttgart",
+      "no frame cracks"
+    ],
     "note": "I can pick it up this weekend."
   },
   {
@@ -46,7 +87,10 @@
     "want": "Lego Millennium Falcon set",
     "maxPrice": 120,
     "city": "Hamburg",
-    "careAbout": ["complete set", "instructions included"],
+    "careAbout": [
+      "complete set",
+      "instructions included"
+    ],
     "note": "Box isn't important."
   },
   {
@@ -56,7 +100,11 @@
     "want": "AirPods Pro (2nd generation)",
     "maxPrice": 120,
     "city": "Cologne",
-    "careAbout": ["original, not a fake", "battery health ok", "charging case included"],
+    "careAbout": [
+      "original, not a fake",
+      "battery health ok",
+      "charging case included"
+    ],
     "note": "Had a fake pair once, so I'm careful."
   },
   {
@@ -66,7 +114,10 @@
     "want": "Nintendo Switch OLED with dock",
     "maxPrice": 220,
     "city": "Frankfurt",
-    "careAbout": ["dock included", "screen without cracks"],
+    "careAbout": [
+      "dock included",
+      "screen without cracks"
+    ],
     "note": "Small scratches are fine."
   },
   {
@@ -76,7 +127,11 @@
     "want": "Mechanical keyboard, 75% layout",
     "maxPrice": 80,
     "city": "Stuttgart",
-    "careAbout": ["quiet switches", "75% layout", "German or US layout stated"],
+    "careAbout": [
+      "quiet switches",
+      "75% layout",
+      "German or US layout stated"
+    ],
     "note": "I share an office, so quiet matters most."
   }
 ]
