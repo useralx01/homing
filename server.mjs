@@ -368,6 +368,21 @@ app.post('/api/listings/:id/review', (q, s) => {
   s.json(full(l, u.id));
 });
 
+// A person's page: their numbers, what they sell, and every review from a real deal.
+app.get('/api/users/:id', (q, s) => {
+  const u = userOf(q.params.id);
+  if (!u) return s.status(404).json({ error: 'not found' });
+  const reviews = [];
+  for (const l of listings) {
+    if (l.status !== 'sold') continue;
+    if (l.sellerId === u.id && l.reviews?.buyer) reviews.push({ ...l.reviews.buyer, from: person(l.buyerId)?.name, role: 'bought', item: l.title, price: l.price, currency: currencyOf(l.country) });
+    if (l.buyerId === u.id && l.reviews?.seller) reviews.push({ ...l.reviews.seller, from: person(l.sellerId)?.name, role: 'sold', item: l.title, price: l.price, currency: currencyOf(l.country) });
+  }
+  reviews.sort((a, b) => b.at - a.at);
+  const forSale = listings.filter((l) => l.sellerId === u.id && l.status === 'open' && l.photo).sort((a, b) => b.at - a.at).map(card);
+  s.json({ id: u.id, name: u.name, country: u.country, since: u.at, ...stats(u.id), forSale, feed: reviews });
+});
+
 // Leaderboard per country: counts and stars come only from finished deals.
 app.get('/api/leaderboard', (q, s) => {
   const country = String(q.query.country || '');

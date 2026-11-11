@@ -21,7 +21,13 @@ const api = async (url, opts = {}) => {
 const cur = () => meta.countries[me?.country]?.currency || 'EUR';
 const money = (v, c = cur()) => new Intl.NumberFormat('en-IE', { style: 'currency', currency: c, maximumFractionDigits: Number(v) % 1 ? 2 : 0 }).format(v);
 const sym = () => money(0).replace(/[\d.,\s]/g, '');
-const avatar = (el, name) => { el.textContent = (name || '?').trim()[0].toUpperCase(); };
+// every person gets their own shade of blue
+const hue = (name = '') => 205 + ([...name].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 997, 7) % 30);
+const avatar = (el, name) => { el.textContent = (name || '?').trim()[0].toUpperCase(); el.style.setProperty('--h', hue(name)); };
+const av = (name, cls = '') => `<span class="av ${cls}" style="--h:${hue(name)}">${esc((name || '?').trim()[0].toUpperCase())}</span>`;
+const CHEV = '<svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>';
+const ago = (t) => { const d = Math.round((Date.now() - t) / 86400000); return d < 1 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : d < 60 ? Math.round(d / 7) + ' weeks ago' : Math.round(d / 30) + ' months ago'; };
+window.addEventListener('scroll', () => $('#top').classList.toggle('scrolled', scrollY > 4), { passive: true });
 const names = (list) => list.length < 2 ? list.join('') : list.slice(0, -1).join(', ') + ' and ' + list.at(-1);
 let toastT;
 const toast = (msg) => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 3200); };
@@ -52,6 +58,7 @@ async function route() {
     case 'paid': return openPaid(arg);
     case 'me': return openMe();
     case 'board': return openBoard();
+    case 'user': return openUser(arg);
     default: return openHome();
   }
 }
@@ -81,7 +88,7 @@ function setupForUser() {
 
 // ---------- home ----------
 function openHome() {
-  $('#hello').textContent = `Hi ${me.name}`;
+  $('#hello').textContent = `Hi ${me.name}.`;
   show('home');
 }
 async function refreshBadge() {
@@ -209,6 +216,7 @@ function sold(l) {
   const live = $('#pLive');
   live.className = 'live done';
   $('#pArc').style.strokeDashoffset = '0';
+  $('.ring', live).innerHTML = '<svg class="tick" viewBox="0 0 52 52" style="width:48px;height:48px;margin:0;transform:none"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg>';
   $('#pHead').textContent = `Sold to ${l.buyer.name}`;
   $('#pSub').textContent = `${money(l.price, l.currency)} paid with PayPal.`;
   const o = $('#pOutcome');
@@ -287,6 +295,7 @@ async function openBrowse() {
   show('browse');
   const items = await api(`/api/listings?country=${me.country}&category=${encodeURIComponent(browseCat)}`).catch(() => []);
   fillGrid($('#grid'), items);
+  $('#bCount').textContent = items.length ? items.length + ' for sale' : '';
   const e = $('#bEmpty');
   e.hidden = items.length > 0;
   e.innerHTML = `<b>Nothing here yet</b>${browseCat ? 'Nothing in this category' : 'Nothing for sale'} in ${esc(meta.countries[me.country].name)} right now. Homing only shows things in your country.`;
@@ -303,7 +312,8 @@ async function openItem(lid) {
   const st = $('#iState');
   st.hidden = l.status === 'open'; st.textContent = 'Sold';
   const s = l.seller;
-  $('#iSeller').innerHTML = `<span class="av"></span><span class="who"><b>${esc(s.name)}</b><small>${s.stars ? STAR + ' ' + s.stars + ' · ' : ''}${s.sold} sold${s.reviews ? ' · ' + s.reviews + ' reviews' : ''}</small></span>`;
+  $('#iSeller').href = '#user/' + s.id;
+  $('#iSeller').innerHTML = `<span class="av"></span><span class="who"><b>${esc(s.name)}</b><small>${s.stars ? STAR + ' ' + s.stars + ' · ' : ''}${s.sold} sold${s.reviews ? ' · ' + s.reviews + ' reviews' : ''}</small></span>${CHEV}`;
   avatar($('.av', $('#iSeller')), s.name);
   $('#iDesc').textContent = l.description;
   $('#iSeen').innerHTML = l.facts.length ? '<em>AI saw in the photo:</em>' + l.facts.map((f) => `<span>${esc(f)}</span>`).join('') : '';
@@ -388,14 +398,14 @@ async function openMe() {
 
 // ---------- leaderboard ----------
 let boardBy = 'sellers';
-$$('.seg button').forEach((b) => (b.onclick = () => { boardBy = b.dataset.by; $$('.seg button').forEach((x) => x.classList.toggle('on', x === b)); openBoard(); }));
+$$('.seg button').forEach((b) => (b.onclick = () => { boardBy = b.dataset.by; $$('.seg button').forEach((x) => x.classList.toggle('on', x === b)); $('#seg').classList.toggle('right', boardBy === 'buyers'); openBoard(); }));
 async function openBoard() {
   show('board');
   const rows = await api(`/api/leaderboard?country=${me.country}&by=${boardBy}`).catch(() => []);
   const key = boardBy === 'sellers' ? 'sold' : 'bought';
-  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><span class="n">${i + 1}</span><span class="av">${esc(u.name[0])}</span>
+  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${u.id}"><span class="n">${i + 1}</span>${av(u.name)}
     <span class="t"><b>${esc(u.name)}</b><small>${u.sold} sold · ${u.bought} bought</small></span>
-    <span class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</span></li>`).join('')
+    <span class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</span>${CHEV}</a></li>`).join('')
     : '<li style="display:block;color:var(--faint)">No deals in your country yet.</li>';
 }
 
@@ -422,3 +432,22 @@ async function openBoard() {
   if (me) setupForUser();
   route();
 })();
+
+// ---------- a person ----------
+async function openUser(uid) {
+  let u;
+  try { u = await api('/api/users/' + uid); } catch { location.hash = 'board'; return; }
+  avatar($('#uAv'), u.name);
+  $('#uName').textContent = u.name + (u.id === me.id ? ' (you)' : '');
+  $('#uMeta').textContent = `${meta.countries[u.country].name} · on Homing since ${new Date(u.since).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
+  $('#uSold').textContent = u.sold; $('#uBought').textContent = u.bought;
+  $('#uStars').innerHTML = u.stars ? STAR + u.stars.toFixed(1) : '–';
+  $('#uStarsL').textContent = u.reviews ? `${u.reviews} ${u.reviews === 1 ? 'review' : 'reviews'}` : 'No reviews yet';
+  $('#uSale').hidden = !u.forSale.length;
+  fillGrid($('#uGrid'), u.forSale);
+  const stars = (n) => [1, 2, 3, 4, 5].map((k) => STAR.replace('class="star"', k <= n ? '' : 'class="off"')).join('');
+  $('#uRevs').innerHTML = u.feed.length ? u.feed.map((r) => `<li><div class="r-top">${av(r.from)}<b>${esc(r.from)}</b><span class="r-stars">${stars(r.stars)}</span><time>${ago(r.at)}</time></div>
+    ${r.text ? `<p>${esc(r.text)}</p>` : ''}<span class="deal">${r.role === 'bought' ? esc(r.from) + ' bought' : esc(u.name) + ' bought'} ${esc(r.item)} · ${money(r.price, r.currency)} via PayPal</span></li>`).join('')
+    : '<li style="color:var(--faint)">No reviews yet.</li>';
+  show('user');
+}

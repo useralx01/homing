@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/app.css?v=15">
+<link rel="stylesheet" href="/app.css?v=21">
 </head>
 <body>
 
@@ -24,7 +24,7 @@
 
   <!-- SIGN IN -->
   <section class="screen signin" data-screen="signin" hidden>
-    <img class="big-mark" src="/logo.svg" alt="" width="64" height="64">
+    <div class="trio" aria-hidden="true"><img src="/img/sell.webp" alt=""><img src="/img/buy.webp" alt=""><img src="/img/browse.webp" alt=""></div>
     <h1>Homing</h1>
     <p class="sub">Buy and sell in a minute.</p>
     <form id="signinForm" class="form" autocomplete="off">
@@ -38,24 +38,16 @@
 
   <!-- HOME -->
   <section class="screen home" data-screen="home" hidden>
-    <p class="hello" id="hello"></p>
+    <h1 id="hello">Hi.</h1>
+    <p class="sub">Sell it, find it, or just look around.</p>
     <nav class="three">
-      <a class="big" href="#sell">
-        <span class="orb"><svg viewBox="0 0 24 24"><path d="M3.5 8.5h3.2l1.8-2.6h7l1.8 2.6h3.2v10H3.5z"/><circle cx="12" cy="13.2" r="3.4"/></svg></span>
-        <span class="lbl"><b>Sell</b><small>Photo, price, post.</small></span>
-      </a>
-      <a class="big" href="#buy">
-        <span class="orb"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></span>
-        <span class="lbl"><b>Buy</b><small>Say what you want.</small></span>
-      </a>
-      <a class="big" href="#browse">
-        <span class="orb"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="7.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="7.5" rx="1.6"/><rect x="4" y="14.5" width="6.5" height="5.5" rx="1.6"/><rect x="13.5" y="14.5" width="6.5" height="5.5" rx="1.6"/></svg></span>
-        <span class="lbl"><b>Browse</b><small>See what's for sale near you.</small></span>
-      </a>
+      <a class="big" href="#sell"><img class="ren" src="/img/sell.webp" alt="" width="96" height="96"><span class="lbl"><b>Sell</b><small>Photo, price, post.</small></span><svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></a>
+      <a class="big" href="#buy"><img class="ren" src="/img/buy.webp" alt="" width="96" height="96"><span class="lbl"><b>Buy</b><small>Say what you want.</small></span><svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></a>
+      <a class="big" href="#browse"><img class="ren" src="/img/browse.webp" alt="" width="96" height="96"><span class="lbl"><b>Browse</b><small>All for sale near you.</small></span><svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></a>
     </nav>
     <div class="links">
-      <a href="#board">Leaderboard</a>
-      <a href="#me">My stuff <i class="count" id="homeCount" hidden></i></a>
+      <a href="#board"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>Leaderboard</a>
+      <a href="#me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>My stuff<i class="count" id="homeCount" hidden></i></a>
     </div>
   </section>
 
@@ -67,7 +59,7 @@
         <input type="file" name="photo" id="photo" accept="image/*" capture="environment" hidden>
         <img id="shotImg" alt="">
         <span class="shot-empty">
-          <span class="orb"><svg viewBox="0 0 24 24"><path d="M3.5 8.5h3.2l1.8-2.6h7l1.8 2.6h3.2v10H3.5z"/><circle cx="12" cy="13.2" r="3.4"/></svg></span>
+          <img src="/img/sell.webp" alt="">
           <b>Take a photo</b><small>No photo, no sale.</small>
         </span>
         <span class="retake">Retake</span>
@@ -123,7 +115,7 @@
 
   <!-- BROWSE -->
   <section class="screen browse" data-screen="browse" hidden>
-    <div class="browse-head"><h2>Browse</h2><span class="flag" id="bCountry"></span></div>
+    <div class="browse-head"><h2>Browse</h2><span class="n" id="bCount"></span><span class="flag" id="bCountry"></span></div>
     <div class="chips scroll" id="bCats"></div>
     <ul class="grid" id="grid"></ul>
     <p class="empty" id="bEmpty" hidden></p>
@@ -162,14 +154,23 @@
   <!-- LEADERBOARD -->
   <section class="screen board" data-screen="board" hidden>
     <h2>Leaderboard</h2>
-    <div class="seg" role="tablist"><button data-by="sellers" class="on">Sellers</button><button data-by="buyers">Buyers</button></div>
+    <div class="seg" id="seg" role="tablist"><button data-by="sellers" class="on">Sellers</button><button data-by="buyers">Buyers</button></div>
     <ol class="rank" id="rank"></ol>
     <p class="fine">Only real deals count. You can only review someone after you bought from them or sold to them.</p>
+  </section>
+  <!-- PERSON -->
+  <section class="screen user" data-screen="user" hidden>
+    <div class="u-head"><span class="av xl" id="uAv"></span><h2 id="uName"></h2><p class="sub" id="uMeta"></p></div>
+    <dl class="nums"><div><dt>Sold</dt><dd id="uSold"></dd></div><div><dt>Bought</dt><dd id="uBought"></dd></div><div><dt id="uStarsL">Rating</dt><dd id="uStars"></dd></div></dl>
+    <div id="uSale"><h3>For sale</h3><ul class="grid" id="uGrid"></ul></div>
+    <h3>Reviews</h3>
+    <ul class="reviews" id="uRevs"></ul>
+    <p class="fine" style="margin-top:14px">Every review comes from a real, paid deal. You can't review someone you never traded with.</p>
   </section>
 </main>
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="/app.js?v=14" type="module"></script>
+<script src="/app.js?v=21" type="module"></script>
 </body>
 </html>
