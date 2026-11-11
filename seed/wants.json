@@ -2,8 +2,8 @@
   {
     "id": "w_mara",
     "name": "Mara",
-    "said": "Looking for a PS5 controller for my brother, white if possible, up to 40 euro. Please no stick drift, he's had that twice.",
-    "want": "PS5 DualSense controller",
+    "said": "Looking for a game controller for my brother, white if possible, up to 40 euro. Please no stick drift, he's had that twice.",
+    "want": "White wireless game controller",
     "maxPrice": 40,
     "city": "Stuttgart",
     "careAbout": [
@@ -16,8 +16,8 @@
   {
     "id": "w_jonas",
     "name": "Jonas",
-    "said": "Need any PlayStation 5 controller cheap, color doesn't matter, max 35. Shipping is fine.",
-    "want": "PS5 controller",
+    "said": "Need any wireless game controller cheap, color doesn't matter, max 35. Shipping is fine.",
+    "want": "Wireless game controller",
     "maxPrice": 35,
     "city": "Berlin",
     "careAbout": [
@@ -29,12 +29,12 @@
   {
     "id": "w_kai",
     "name": "Kai",
-    "said": "Need a second controller for PS5 so my friend can play too. Up to 45 euro, near Stuttgart, pickup is fine.",
-    "want": "Second PS5 controller",
+    "said": "Need a second controller for my console so my friend can play too. Up to 45 euro, near Stuttgart, pickup is fine.",
+    "want": "Second game controller",
     "maxPrice": 45,
     "city": "Stuttgart",
     "careAbout": [
-      "works with PS5",
+      "works with my console",
       "pickup near Stuttgart"
     ],
     "note": "Just for couch co-op with a friend."
@@ -42,8 +42,8 @@
   {
     "id": "w_nina",
     "name": "Nina",
-    "said": "Looking for a white DualSense but only up to 25 euro, I am a student.",
-    "want": "White DualSense controller",
+    "said": "Looking for a white game controller but only up to 25 euro, I am a student.",
+    "want": "White game controller",
     "maxPrice": 25,
     "city": "Leipzig",
     "careAbout": [
@@ -55,8 +55,8 @@
   {
     "id": "w_lea",
     "name": "Lea",
-    "said": "Searching a film camera for my first roll, something like a Canon AE-1 or similar, max 150, must have a working light meter.",
-    "want": "35mm film camera (Canon AE-1 or similar)",
+    "said": "Searching a 35mm film camera for my first roll, an old manual one is perfect, max 150, must have a working light meter.",
+    "want": "35mm film camera",
     "maxPrice": 150,
     "city": "Munich",
     "careAbout": [
@@ -83,8 +83,8 @@
   {
     "id": "w_sofia",
     "name": "Sofia",
-    "said": "I'm looking for the Lego Millennium Falcon set, complete, up to 120 euros. Box isn't important.",
-    "want": "Lego Millennium Falcon set",
+    "said": "I'm looking for a big building-brick spaceship set, complete, up to 120 euros. Box isn't important.",
+    "want": "Building-brick spaceship set",
     "maxPrice": 120,
     "city": "Hamburg",
     "careAbout": [
@@ -96,8 +96,8 @@
   {
     "id": "w_ben",
     "name": "Ben",
-    "said": "Need AirPods Pro, 2nd gen, max 120. Must be original, not fake, and battery should be ok.",
-    "want": "AirPods Pro (2nd generation)",
+    "said": "Need wireless earbuds with noise cancelling, max 120. Must be original, not a fake, and battery should be ok.",
+    "want": "Noise-cancelling wireless earbuds",
     "maxPrice": 120,
     "city": "Cologne",
     "careAbout": [
@@ -110,8 +110,8 @@
   {
     "id": "w_noah",
     "name": "Noah",
-    "said": "Looking for a Nintendo Switch OLED, up to 220, with dock. Small scratches ok.",
-    "want": "Nintendo Switch OLED with dock",
+    "said": "Looking for a handheld game console with a dock, up to 220. Small scratches ok.",
+    "want": "Handheld game console with dock",
     "maxPrice": 220,
     "city": "Frankfurt",
     "careAbout": [

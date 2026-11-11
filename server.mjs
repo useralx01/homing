@@ -1,4 +1,4 @@
-// Homing: snap what you sell, AI hands it to the people already looking for it,
+// Homing: one photo of what you sell, AI hands it to the people already looking for it,
 // each gets a short message, the full details, and a PayPal button.
 import 'dotenv/config';
 import express from 'express';
@@ -18,7 +18,7 @@ const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\
 const CURRENCY = process.env.CURRENCY || 'EUR';
 const GEMINI_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
-const GEMINI_FALLBACKS = (process.env.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-flash-latest,gemini-3.5-flash').split(',').map((s) => s.trim()).filter(Boolean);
+const GEMINI_FALLBACKS = (process.env.GEMINI_FALLBACKS || 'gemini-3.5-flash-lite,gemini-3-flash-preview,gemini-3.5-flash').split(',').map((s) => s.trim()).filter(Boolean);
 const PP_ID = process.env.PAYPAL_CLIENT_ID || '';
 const PP_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
 const PP_API = process.env.PAYPAL_ENV === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
@@ -46,7 +46,7 @@ async function gemini(parts, schemaHint) {
   for (const m of models) {
     let r;
     try {
-      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${GEMINI_KEY}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(20000) });
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${GEMINI_KEY}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(12000) });
     } catch (e) { last = `${m}: ${e.name === 'TimeoutError' ? 'timed out' : e.message}`; if (process.env.DEBUG) console.log('gemini', last); continue; }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { last = `${m}: ${j.error?.message || r.status}`; if (process.env.DEBUG) console.log('gemini', last); continue; }
@@ -77,6 +77,15 @@ Never invent facts you cannot see or that were not stated.`,
 
 async function matchWants(item, sellerLine, sellerDetails, open) {
   if (!open.length) return [];
+  // The model sometimes returns nobody for a clear match; one more try fixes that in practice.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const found = await matchOnce(item, sellerLine, sellerDetails, open);
+    if (found.length) return found;
+  }
+  return [];
+}
+
+async function matchOnce(item, sellerLine, sellerDetails, open) {
   const list = open.map((w) => ({ id: w.id, looking_for: w.want, max_price: w.maxPrice, city: w.city, care_about: w.careAbout, note: w.note }));
   const res = await gemini(
     [],

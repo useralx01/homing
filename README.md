@@ -1,6 +1,6 @@
 # Homing
 
-**Snap what you sell. AI hands it straight to the people already looking for it, with a PayPal button attached.**
+**One photo of what you sell. AI hands it straight to the people already looking for it, with a PayPal button attached.**
 
 Selling second-hand today is slow on both sides: the seller writes a listing and waits, the buyer browses for days, and then both text back and forth. Homing flips it: buyers say once what they're looking for (and what they care about), sellers take one photo, and the AI delivers the item to exactly the right people in a few seconds, each with a ready PayPal checkout. First to pay gets it.
 
@@ -8,9 +8,9 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/).
 
 ## How it works
 
-1. **A buyer says what they want**, in their own words: *"A PS5 controller for my brother, white if possible, up to 40 €. Please no stick drift."*
+1. **A buyer says what they want**, in their own words: *"A game controller for my brother, white if possible, up to 40 €. Please no stick drift."*
    Gemini turns that into a request: the item, max price, city, and the things they want checked (`no stick drift`, `white colour`, …). Buyers opt in; nobody gets messaged who didn't ask.
-2. **A seller takes one photo** and writes one line: *"PS5 controller, white, 35 €"*, plus optional details.
+2. **A seller takes one photo** and writes one line: *"Game controller, white, 35 €"*, plus optional details.
 3. **Gemini reads the photo** (what it is, condition, visible facts and flaws) and **matches it against every open request**. For each match it writes:
    - one short personal message (because most people don't read more),
    - a fit score and a one-line reason,
@@ -22,7 +22,7 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/).
 
 | Part | What is used |
 |---|---|
-| AI vision | Gemini (`gemini-3.5-flash-lite`, with automatic fallback to other Gemini models) reads the photo and the seller's words into structured facts and flaws |
+| AI vision | Gemini (`gemini-flash-lite-latest`, with automatic fallback to other Gemini models) reads the photo and the seller's words into structured facts and flaws |
 | AI matching | Gemini scores every opt-in request, writes the one-line message and checks each buyer's "care about" list honestly |
 | AI request parsing | Gemini turns a buyer's free text into item, max price, city and checklist |
 | PayPal OAuth | `POST /v1/oauth2/token` (client credentials, cached) |
@@ -44,7 +44,7 @@ npm start
 Open http://localhost:4321.
 
 - **Sell**: add any photo + one line, press *Find the people looking*.
-- **Who's looking**: 10 demo buyers are pre-loaded (Mara wants a white PS5 controller, Lea a film camera, Tim a road bike, …). Open anyone's inbox to see what they received.
+- **Who's looking**: 10 demo buyers are pre-loaded (Mara wants a white game controller, Lea a film camera, Tim a road bike, …). Open anyone's inbox to see what they received.
 - **I'm looking**: add yourself as a buyer in plain words.
 - **Pay**: click *Pay with PayPal* and log in with a **PayPal sandbox personal account** (create one under *Testing Tools → Sandbox Accounts* in the PayPal developer dashboard). No real money moves.
 - `POST /api/reset` restores the demo buyers.
