@@ -1,0 +1,77 @@
+/* Homing legal pages: white, Inter Tight headings, blue links, thin lines, no boxes. */
+@font-face{font-family:"Inter Tight";font-weight:500 900;font-display:swap;src:local("Inter Tight"),url("/fonts/InterTight-var.woff2") format("woff2")}
+@font-face{font-family:"Inter";font-weight:400 700;font-display:swap;src:local("Inter"),url("/fonts/Inter-var.woff2") format("woff2")}
+:root{
+  --bg:#fff; --ink:#0a0a0c; --muted:#6b6c75; --faint:#a1a2aa;
+  --line:rgba(10,12,30,.09); --blue:#0b57d0;
+  --head:"Inter Tight",Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --body:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.65 var(--body);letter-spacing:-.006em;-webkit-font-smoothing:antialiased;overflow-wrap:break-word}
+a{color:var(--blue);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
+
+/* one language at a time once legal.js has run; without JS both show, English first */
+html[data-lang="en"] body [lang="de"],html[data-lang="de"] body [lang="en"]{display:none!important}
+
+.lg-top,.lg-main,.lg-foot{max-width:720px;margin:0 auto;padding:0 16px}
+.lg-top{display:flex;align-items:center;justify-content:space-between;gap:12px;height:64px;border-bottom:1px solid var(--line)}
+.lg-brand{display:inline-flex;align-items:center;gap:8px;font:800 19px/1 var(--head);letter-spacing:-.03em;color:var(--blue);text-decoration:none}
+.lg-brand img{width:24px;height:24px}
+.lg-lang{display:flex;gap:2px;font:600 14px/1 var(--head)}
+.lg-lang a{color:var(--muted);text-decoration:none;padding:8px 10px;border-radius:999px}
+.lg-lang a[aria-current="true"]{color:var(--blue)}
+.lg-lang a+a{border-left:1px solid var(--line);border-radius:0}
+
+.lg-main{padding-top:36px;padding-bottom:24px}
+.kicker{font:600 13px/1.4 var(--head);color:var(--muted);margin:0 0 6px}
+h1{font:800 clamp(32px,7vw,44px)/1.08 var(--head);letter-spacing:-.035em;margin:0 0 14px}
+.lede{font-size:18px;line-height:1.55;color:var(--ink);margin:0 0 8px;max-width:60ch}
+.meta{font-size:13px;color:var(--muted);margin:0 0 28px}
+section{border-top:1px solid var(--line);padding:22px 0 8px}
+h2{font:700 21px/1.25 var(--head);letter-spacing:-.02em;margin:0 0 10px}
+h3{font:650 16px/1.35 var(--head);letter-spacing:-.01em;margin:18px 0 6px}
+p{margin:0 0 12px}
+ul,ol{margin:0 0 12px;padding-left:22px}
+li{margin:0 0 6px}
+li::marker{color:var(--faint)}
+strong,b{font-weight:650}
+.muted{color:var(--muted)}
+small{font-size:13px}
+
+/* fact rows: label left, text right on wide screens, stacked on phones */
+dl.rows{margin:6px 0 14px}
+dl.rows>div{display:grid;grid-template-columns:150px 1fr;gap:4px 18px;padding:9px 0;border-top:1px solid var(--line)}
+dl.rows>div:first-child{border-top:0}
+dl.rows dt{font:600 14px/1.5 var(--head);color:var(--muted)}
+dl.rows dd{margin:0}
+@media (max-width:560px){dl.rows>div{grid-template-columns:1fr;gap:0}}
+
+/* the address block in the Impressum */
+.addr{font-size:17px;line-height:1.6;margin:0 0 14px}
+/* placeholders Licht must replace */
+.ph{color:var(--blue);background:rgba(11,87,208,.07);border-bottom:1px dashed var(--blue);padding:0 3px;font-weight:600}
+
+/* contents list at the top of long pages */
+.toc{list-style:none;padding:0;margin:0 0 6px;columns:2;column-gap:28px;font-size:15px}
+.toc li{break-inside:avoid;margin:0 0 4px}
+@media (max-width:560px){.toc{columns:1}}
+
+/* index list */
+.list{list-style:none;padding:0;margin:0}
+.list li{border-top:1px solid var(--line);margin:0;padding:14px 0}
+.list li:first-child{border-top:0}
+.list a{font:700 19px/1.3 var(--head);letter-spacing:-.02em;text-decoration:none}
+.list a:hover{text-decoration:underline}
+.list span{display:block;color:var(--muted);font-size:15px;margin-top:2px}
+
+.lg-foot{border-top:1px solid var(--line);padding-top:18px;padding-bottom:40px;font-size:14px;color:var(--muted)}
+.lg-foot nav{display:flex;flex-wrap:wrap;gap:6px 18px;margin-bottom:10px}
+.lg-foot a{color:var(--muted);text-decoration:none}
+.lg-foot a:hover,.lg-foot a[aria-current="page"]{color:var(--blue)}
+.lg-foot p{margin:0}
+
+@media print{.lg-top .lg-lang,.lg-foot nav{display:none}a{color:inherit}}

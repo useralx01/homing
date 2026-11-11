@@ -220,6 +220,7 @@ function checkSell() {
   if (!(Number($('#sPrice').value) >= 1)) miss.push('a price');
   const d = $('#sDesc').value.trim().length;
   if (d < 30) miss.push('the description');
+  if (!$('#sAccept').checked) miss.push('your OK to the Terms');
   $('#sDescHint').textContent = d < 30 ? `${30 - d} more characters. Condition, flaws, what comes with it.` : 'Good. Buyers will read this before they pay.';
   $('#sDescHint').classList.toggle('ok', d >= 30);
   $('#post').disabled = miss.length > 0;
@@ -264,6 +265,7 @@ sellForm.onsubmit = async (e) => {
   fd.append('category', picked($('#sCats')));
   fd.append('price', $('#sPrice').value);
   fd.append('description', $('#sDesc').value.trim());
+  fd.append('accept', $('#sAccept').checked ? 'true' : 'false');
   pending = { title: $('#sTitle').value.trim(), price: Number($('#sPrice').value) };
   $('#pImg').src = shotUrl; $('#pTitle').textContent = pending.title; $('#pPrice').textContent = money(pending.price);
   const live = $('#pLive');
@@ -486,10 +488,11 @@ async function openItem(lid) {
     $('button', box).onclick = async () => { await api(`/api/listings/${l.id}`, { method: 'DELETE' }); toast('Deleted.'); location.hash = 'me'; };
   } else {
     $('#iBar').hidden = false; $('#iBarP').textContent = money(l.price, l.currency);
-    $('#iBarBtn').onclick = () => openSheet();
+    $('#iBarBtn').onclick = () => { fillBuy(); openSheet(); };
+    const fillBuy = () => {
     const sb = $('#sheetBody');
-    sb.innerHTML = `<div class="sh-item"><img src="${esc(l.photo)}" alt=""><div><b>${esc(l.title)}</b><span>${money(l.price, l.currency)} · from ${esc(s.name)}</span></div></div><label class="check"><input type="checkbox" id="readIt"><span><b>I read the description</b><small>Buying is instant. What it says is what you get.</small></span></label>
-      <button class="pp" id="payPP" disabled>${PP}</button>${meta.sandbox ? '<button class="card-pay" id="payCard" disabled>Sandbox: pay with PayPal test card</button>' : ''}<p class="err" id="payErr"></p>`;
+    sb.innerHTML = `<div class="sh-item"><img src="${esc(l.photo)}" alt=""><div><b>${esc(l.title)}</b><span>${money(l.price, l.currency)} <span class="incl">incl. shipping</span> · from ${esc(s.name)}</span></div></div><label class="check"><input type="checkbox" id="readIt"><span><b>I read the description</b><small>Buying is instant. What it says is what you get.</small></span></label>
+      <button class="pp" id="payPP" disabled>${PP}</button>${meta.sandbox ? '<button class="card-pay" id="payCard" disabled>Sandbox: pay with PayPal test card</button>' : ''}<p class="err" id="payErr"></p><p class="fine buyline">By buying you accept the <a href="/legal/terms.html" target="_blank" rel="noopener">Terms</a>. Private sale: no 14-day return right. <a href="/legal/refunds.html" target="_blank" rel="noopener">Refunds</a></p>`;
     $('.amt', sb).textContent = money(l.price, l.currency);
     $('#readIt').onchange = (e) => { $('#payPP').disabled = !e.target.checked; if ($('#payCard')) $('#payCard').disabled = !e.target.checked; };
     const pay = async (method) => {
@@ -503,7 +506,10 @@ async function openItem(lid) {
     };
     $('#payPP').onclick = () => pay('paypal');
     if ($('#payCard')) $('#payCard').onclick = () => pay('card');
+    };
   }
+  $('#iReport').hidden = !me || l.mine;
+  $('#iReport').onclick = () => openReport('listing', l.id, l.title);
   show('item');
 }
 
@@ -626,28 +632,68 @@ async function openUser(uid) {
       catch (err) { toast(err.message); }
     };
   }));
+  $('#uReport').hidden = !me || u.id === me.id;
+  $('#uReport').onclick = () => openReport('user', u.id, u.name);
   show('user');
 }
 
 // ---------- buy sheet ----------
 // "Buy now" grows into the sheet (a shared view transition), and shrinks back into the button
 const canMorph = () => !!document.startViewTransition && !REDUCE;
-function openSheet() {
+let sheetKind = 'buy';
+function openSheet(kind = 'buy') {
   haptic('medium');
+  sheetKind = kind;
   const sh = $('#sheet'), panel = $('.sheet-panel', sh), btn = $('#iBarBtn');
-  if (!canMorph()) { sh.hidden = false; document.body.classList.add('locked'); requestAnimationFrame(() => sh.classList.add('open')); return; }
+  if (!canMorph() || kind !== 'buy' || !btn.offsetParent) { sh.hidden = false; document.body.classList.add('locked'); requestAnimationFrame(() => sh.classList.add('open')); return; }
   btn.style.viewTransitionName = 'buy'; document.documentElement.dataset.dir = 'sheet';
   const t = document.startViewTransition(() => { btn.style.viewTransitionName = ''; panel.style.viewTransitionName = 'buy'; sh.classList.add('instant'); sh.hidden = false; sh.classList.add('open'); document.body.classList.add('locked'); });
   t.ready.catch(() => {}); t.finished.catch(() => {}).finally(() => { panel.style.viewTransitionName = ''; sh.classList.remove('instant'); });
 }
 function closeSheet() {
   const sh = $('#sheet'), panel = $('.sheet-panel', sh), btn = $('#iBarBtn');
-  if (!canMorph() || !btn.offsetParent) { sh.classList.remove('open'); document.body.classList.remove('locked'); setTimeout(() => (sh.hidden = true), 280); return; }
+  if (!canMorph() || sheetKind !== 'buy' || !btn.offsetParent) { sh.classList.remove('open'); document.body.classList.remove('locked'); setTimeout(() => (sh.hidden = true), 280); return; }
   panel.style.viewTransitionName = 'buy'; document.documentElement.dataset.dir = 'sheet';
   const t = document.startViewTransition(() => { panel.style.viewTransitionName = ''; btn.style.viewTransitionName = 'buy'; sh.classList.add('instant'); sh.classList.remove('open'); sh.hidden = true; document.body.classList.remove('locked'); });
   t.ready.catch(() => {}); t.finished.catch(() => {}).finally(() => { btn.style.viewTransitionName = ''; sh.classList.remove('instant'); });
 }
 $('#sheetBg').onclick = closeSheet;
+
+// ---------- report an item or a person ----------
+function openReport(kind, rid, what) {
+  const reasons = Object.entries(meta.reportReasons || {}).filter(([k]) => kind === 'user' || k !== 'review');
+  const sb = $('#sheetBody');
+  sb.innerHTML = `<h3 class="rp-h">Report ${kind === 'user' ? esc(what) : 'this item'}</h3><p class="rp-sub">We check every report. Pick what is wrong.</p>
+    <div class="rp-list" role="radiogroup">${reasons.map(([k, v]) => `<label><input type="radio" name="rpWhy" value="${esc(k)}">${esc(v)}</label>`).join('')}</div>
+    <textarea class="rp-text" id="rpText" maxlength="500" rows="3" placeholder="Anything else we should know (optional)"></textarea>
+    <button class="primary" id="rpSend" type="button" disabled>Send report</button><p class="err" id="rpErr"></p>
+    <p class="fine legal">False reports break the <a href="/legal/terms.html" target="_blank" rel="noopener">Terms</a>. <a href="/legal/report.html" target="_blank" rel="noopener">How reports work</a></p>`;
+  $$('input[name=rpWhy]', sb).forEach((r) => (r.onchange = () => { $('#rpSend').disabled = false; haptic('light'); }));
+  $('#rpSend').onclick = async () => {
+    const reason = $('input[name=rpWhy]:checked', sb)?.value;
+    $('#rpSend').disabled = true; $('#rpErr').textContent = '';
+    try { await api('/api/report', { method: 'POST', json: { kind, id: rid, reason, text: $('#rpText').value } }); closeSheet(); toast('Thanks. We will look at it.'); }
+    catch (err) { $('#rpErr').textContent = err.message; $('#rpSend').disabled = false; }
+  };
+  openSheet('report');
+}
+
+// ---------- my account: delete ----------
+$('#mDelete').onclick = () => {
+  const sb = $('#sheetBody');
+  sb.innerHTML = `<h3 class="rp-h">Delete your account?</h3><p class="rp-sub">Your profile, photo, items for sale and searches are deleted and you are signed out. This can't be undone. Finished deals stay for the law (3 years), shown as "Former member".</p>
+    <div class="row2"><button class="secondary" id="dlNo" type="button">Keep it</button><button class="secondary danger" id="dlYes" type="button">Delete</button></div><p class="err" id="dlErr"></p>`;
+  $('#dlNo').onclick = closeSheet;
+  $('#dlYes').onclick = async () => {
+    $('#dlYes').disabled = true; $('#dlErr').textContent = '';
+    try {
+      await api('/api/me', { method: 'DELETE' });
+      try { for (const k of Object.keys(localStorage)) if (k === 'homing.user' || k.startsWith('homing.seen.')) localStorage.removeItem(k); } catch {}
+      me = null; remember(); closeSheet(); toast('Your account is deleted.'); location.hash = ''; show('signin');
+    } catch (err) { $('#dlErr').textContent = err.message; $('#dlYes').disabled = false; }
+  };
+  openSheet('delete');
+};
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 
 // ---------- sold: the seller hears it right away ----------

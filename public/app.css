@@ -980,3 +980,32 @@ h3.hi .ic{color:var(--blue)}
 .trk-meta .sbx{color:#a15c00}
 .tstat.delivered{color:var(--ok)}
 @media (max-width:520px){.trk-ev li{grid-template-columns:96px 1fr}.trk-line small{font-size:10.5px}}
+
+/* legal links, report, account (plain text links, no boxes) */
+.side-legal,.fine.legal,.legal-row{font-size:12px;color:var(--muted);line-height:1.6}
+.side-legal a,.fine.legal a,.legal-row a{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:2px}
+.side-legal{padding:2px 12px 2px;margin:0}
+.signin .fine.legal{margin-top:10px}
+.legal-row{margin:26px 0 0;padding-top:14px;border-top:1px solid var(--line);text-align:center}
+@media (min-width:1100px){ .legal-row{display:none} }
+.item .i-head .incl{color:var(--muted);font-size:13px;font-weight:500}
+.sh-item .incl{color:var(--muted)}
+.buyline{margin-top:4px}
+.buyline a{color:var(--muted)}
+.report{display:block;margin:22px 0 0;padding:6px 0;color:var(--muted);font-size:13px;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:2px}
+.user .report{margin:14px auto 0}
+.acct{margin-top:30px}
+.acct-l{display:block;width:100%;text-align:left;padding:15px 2px;border-bottom:1px solid var(--line);font-size:15px;font-weight:560;text-decoration:none;color:var(--ink)}
+.acct h3+.acct-l{border-top:1px solid var(--line)}
+.acct-l.danger{color:var(--bad)}
+.rp-h{font-size:21px;margin:6px 0 4px}
+.rp-sub{color:var(--muted);font-size:14px;margin:0 0 10px}
+.rp-list{display:grid;margin:0 0 12px;border-top:1px solid var(--line)}
+.rp-list label{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line);font-size:15px;cursor:pointer}
+.rp-list input{appearance:none;padding:0;flex:none;width:20px;height:20px;margin:0;border-radius:50%;border:1.5px solid var(--line2);background:#fff;display:grid;place-items:center}
+.rp-list input:checked{border-color:var(--blue);box-shadow:inset 0 0 0 5px var(--blue)}
+.rp-text{width:100%;min-height:76px;resize:vertical}
+.sheet .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.item>.report{order:99;justify-self:start}
+@media (min-width:1100px){ .side .side-legal a{display:inline;height:auto;padding:0;border-radius:0;font-size:12px;font-weight:400;color:var(--muted)} .side .side-legal a:hover{background:none;color:var(--ink)} .side .side-legal a:active{transform:none} }
+@media (min-width:1100px){ .me>.acct,.me>.legal-row{grid-column:1/-1} .me>.acct{max-width:calc(50% - 28px)} }

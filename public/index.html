@@ -15,7 +15,7 @@
 
 
 <link rel="preload" href="/fonts/InterTight-var.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/app.css?v=66">
+<link rel="stylesheet" href="/app.css?v=70">
 <link rel="stylesheet" href="/intro.css?v=7">
 </head>
 <body>
@@ -38,6 +38,7 @@
   <a href="#board" data-nav="board"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4"/><path class="f" d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg><span>Leaderboard</span></a>
   <a href="#me" data-nav="me"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle class="f" cx="12" cy="8" r="4"/><path class="f" d="M4 21a8 8 0 0 1 16 0z"/></svg><span>My stuff</span><i class="count" id="sideCount" hidden></i></a>
   <p class="side-foot"><span class="flag" id="sideCountry"></span><small>Paid with PayPal · checked by AI</small></p>
+  <p class="side-legal"><a href="/legal/terms.html">Terms</a> · <a href="/legal/privacy.html">Privacy</a> · <a href="/legal/impressum.html">Impressum</a></p>
 </nav>
 <main id="app">
 
@@ -50,6 +51,7 @@
       <a class="ppbtn" id="ppBtn" href="/auth/paypal"><svg class="ppm" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" opacity=".7" d="M19.6 7.3c.3 2.7-1.4 6-5.6 6h-1.9l-.9 5.5H8l2.3-14h4.3c2.6 0 4.7.9 5 2.5z"/><path fill="#fff" d="M7.4 2h6.1c3 0 5.4 1.3 4.9 4.6-.6 3.7-3 5.4-6.4 5.4H10l-1.1 6.8H4.8z"/></svg><span>Continue with PayPal</span></a>
       <p class="err" id="signinErr" role="alert"></p>
       <p class="fine">Your name, country and address come from PayPal. Nothing to type. You buy and sell only inside your country.</p>
+      <p class="fine legal">By continuing you accept the <a href="/legal/terms.html">Terms</a> and the <a href="/legal/seller-rules.html">seller rules</a>. How we use your data: <a href="/legal/privacy.html">Privacy</a> · <a href="/legal/impressum.html">Impressum</a></p>
       <button class="textbtn" id="demoBtn" type="button">Try the demo without PayPal</button>
     </div>
   </section>
@@ -70,6 +72,7 @@
       <a href="#board"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>Leaderboard</a>
       <a href="#me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>My stuff<i class="count" id="homeCount" hidden></i></a>
     </div>
+    <p class="legal-row"><a href="/legal/terms.html">Terms</a> · <a href="/legal/privacy.html">Privacy</a> · <a href="/legal/impressum.html">Impressum</a></p>
   </section>
 
   <!-- SELL -->
@@ -92,6 +95,7 @@
         <textarea name="description" id="sDesc" rows="4" maxlength="1200" placeholder="Condition, flaws, what comes with it. People buy instantly, so say it all."></textarea>
         <small class="hint" id="sDescHint"></small>
       </label>
+      <label class="check" id="sAcceptL"><input type="checkbox" id="sAccept"><span><b>I accept the Terms and the seller rules</b><small>Private seller · my own item · real photo · <a href="/legal/terms.html" target="_blank" rel="noopener">Terms</a> · <a href="/legal/seller-rules.html" target="_blank" rel="noopener">rules</a></small></span></label>
       <button class="primary morph" id="post" type="submit" disabled><span class="lb">Post</span><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="ar" d="M5 12h14M13 6l6 6-6 6"/><circle class="sp" cx="12" cy="12" r="8"/><path class="ck" d="M6.5 12.5l3.8 3.8L17.5 9"/></svg></span></button>
       <p class="need" id="sellNeed"></p>
       <p class="err" id="sellErr" role="alert"></p>
@@ -158,13 +162,14 @@
     <div class="i-head">
       <small class="i-cat" id="iCat"></small>
       <h2 id="iTitle"></h2>
-      <b class="price" id="iPrice"></b>
+      <b class="price" id="iPrice"></b><small class="incl">incl. shipping</small>
     </div>
     <a class="seller" id="iSeller" href="#board"></a>
     <p class="desc" id="iDesc"></p>
     <div class="seen" id="iSeen"></div>
     <ul class="facts"><li><svg viewBox="0 0 24 24"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg><span id="fShip">Pickup or shipping</span></li><li><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span id="iCountry"></span></li><li><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.3-3 7.9-7 9.5-4-1.6-7-5.2-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span id="fPay">Paid safely with PayPal</span></li></ul>
     <div class="buybox" id="iBuy"></div>
+    <button class="report" id="iReport" type="button" hidden>Report</button>
     <div class="buybar" id="iBar" hidden><button class="primary" id="iBarBtn" type="button"><span>Buy now</span><i aria-hidden="true">·</i><b id="iBarP"></b></button></div>
   </section>
 
@@ -200,7 +205,9 @@
     <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0z"/><circle class="h" cx="8" cy="8" r="1.6"/></svg>Selling</h3><ul class="rows" id="mSell"></ul>
     <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>Looking for</h3><ul class="rows" id="mLook"></ul>
     <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M5 8h14l-1 12.2a1 1 0 0 1-1 .8H7a1 1 0 0 1-1-.8z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>Bought</h3><ul class="rows" id="mBought"></ul>
+    <div class="acct"><h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.3-3 7.9-7 9.5-4-1.6-7-5.2-7-9.5V6z"/></svg>Your account</h3><a class="acct-l" id="mExport" href="/api/me/export" download="homing-data.json">Download my data</a><button class="acct-l danger" id="mDelete" type="button">Delete my account</button></div>
     <button class="textbtn" id="signout">Sign out</button>
+    <p class="legal-row"><a href="/legal/terms.html">Terms</a> · <a href="/legal/privacy.html">Privacy</a> · <a href="/legal/impressum.html">Impressum</a></p>
   </section>
 
   <!-- LEADERBOARD -->
@@ -220,6 +227,7 @@
     <h3>Reviews</h3>
     <ul class="reviews" id="uRevs"></ul>
     <p class="fine" style="margin-top:14px">Every review comes from a real, paid deal. You can't review someone you never traded with.</p>
+    <button class="report" id="uReport" type="button" hidden>Report</button>
   </section>
 </main>
 
@@ -228,6 +236,6 @@
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script type="module" src="/shelf-boot.js?v=44"></script>
-<script src="/app.js?v=59" type="module"></script>
+<script src="/app.js?v=61" type="module"></script>
 </body>
 </html>
