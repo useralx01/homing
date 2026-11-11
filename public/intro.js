@@ -171,7 +171,7 @@ void main(){
     const fall = clamp(t / LAND), fy = 1 - fall * fall;
     const land = t > LAND ? Math.exp(-(t - LAND) * 7) * Math.sin((t - LAND) * 26) : 0;
     let dsx = 1, dsy = 1;
-    if (t < LAND) { dsy = 1 + 0.45 * fall; dsx = 1 / Math.sqrt(dsy); } else { dsy = 1 - 0.38 * land; dsx = 1 + 0.3 * land; }
+    if (t < LAND) { dsy = 1 + 0.45 * fall; dsx = 1 / Math.sqrt(dsy); } else { dsy = 1 - 0.25 * land; dsx = 1 + 0.2 * land; }
     // 2) a stream pours out of it along the stem; the drop gives its body to the stream
     const h = out3((t - POUR) / POUR_D);
     const dotR = RD * (1.9 - 0.9 * clamp(h * 1.15));
@@ -182,7 +182,7 @@ void main(){
     for (let i = 0; i < 12; i++) {
       const u = i / 11; let p, r;
       if (h <= 0) { p = S0; r = i === 0 ? RS : 0; }
-      else if (u <= h) { p = cubic(S0, S1, S2, S3, u); const w = clamp((h - u) / 0.35); r = RS * (0.62 + 0.38 * w + 0.2 * Math.sin(w * Math.PI) * (1 - h * 0.6)); r += (RS - r) * firm; }
+      else if (u <= h) { p = cubic(S0, S1, S2, S3, u); const w = clamp((h - u) / 0.35); r = RS * (0.62 + 0.38 * w + 0.08 * Math.sin(w * Math.PI) * (1 - h * 0.6)); r += (RS - r) * firm; }
       else if (!headSet) { headSet = true; p = cubic(S0, S1, S2, S3, h); r = RS * (1 + 0.95 * (1 - h)); r += (RS - r) * firm; }
       else { p = cubic(S0, S1, S2, S3, h); r = 0; }
       stem.set([p[0], p[1], 0, r], i * 4);
@@ -206,12 +206,12 @@ void main(){
     gl.uniform4fv(U.uX1, x1); gl.uniform4fv(U.uX2, x2);
     // gooey early, crisper as it sets; jelly wobble that calms down
     const set = clamp((t - 0.9) / 0.9);
-    gl.uniform1f(U.uK, 0.2 - 0.14 * set);
-    const amp = t < LAND ? 0.008 : 0.03 * Math.exp(-(t - LAND) * 1.6) + (t > PUFF ? 0.012 * Math.exp(-(t - PUFF) * 4) : 0);
+    gl.uniform1f(U.uK, 0.12 - 0.09 * clamp((t - 0.6) / 0.6));   // a little soft while forming, then firm
+    const amp = t < LAND ? 0.002 : 0.008 * Math.exp(-(t - LAND) * 3.5);   // solid: barely any surface ripple
     gl.uniform1f(U.uAmp, amp); gl.uniform1f(U.uT, t);
     // whole-body jelly: squash on the splat and on the puff, then a soft breath
-    const jig = 0.07 * (t > PUFF ? Math.exp(-(t - PUFF) * 5) * Math.sin((t - PUFF) * 22) : 0) + 0.04 * land;
-    const breath = 0.012 * Math.sin(t * 5) * set;
+    const jig = 0.035 * (t > PUFF ? Math.exp(-(t - PUFF) * 5) * Math.sin((t - PUFF) * 22) : 0) + 0.02 * land;
+    const breath = 0;
     gl.uniform3f(U.uScale, 1 + jig + breath, 1 - jig + breath, 1);
     // turned a little in 3D while forming, faces you as it sets
     const face = ease((t - 0.7) / 0.9);
