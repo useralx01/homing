@@ -1,8 +1,9 @@
-/* ===== opening: a soft rubber tile in real 3D (three.js, public/intro.js) =====
-   the tile drops in and bounces, the blue logo grows out of it, "Homing" comes up under it. */
+/* ===== opening: the logo in real 3D (three.js, public/intro.js) =====
+   it rises turning, grows stroke by stroke, then slides left as "Homing" comes out from behind it. */
 .intro{position:fixed;inset:0;z-index:100;overflow:hidden;cursor:pointer;background:#fff;transition:opacity .5s cubic-bezier(.4,0,.2,1)}
 .intro.out{opacity:0;pointer-events:none}
 .intro canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.in-name{position:absolute;left:0;right:0;text-align:center;font-family:"Inter Tight",Inter,sans-serif;font-weight:760;font-size:46px;line-height:1;
-  letter-spacing:-.045em;color:#0b57d0;opacity:0;will-change:transform,opacity}
-@media (max-width:420px){.in-name{font-size:40px}}
+/* a clip box at the logo's right edge; the word slides out of it (left/top/size set by intro.js) */
+.in-name{position:absolute;overflow:hidden;transform:translateY(-50%);padding:.1em .08em .16em 0;
+  font-family:"Inter Tight",Inter,sans-serif;font-weight:760;font-size:56px;line-height:1;letter-spacing:-.045em;color:#0b57d0}
+.in-name span{display:block;white-space:nowrap;will-change:transform}

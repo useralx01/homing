@@ -1,6 +1,6 @@
-// Opening, in real 3D: a soft white rubber tile drops in and bounces, the glossy blue logo grows out of it
-// stroke by stroke, the tile wobbles to face you and "Homing" comes up under it. ~2.7 s, once per session.
-// Sounds are made here with Web Audio: a rubbery bloop when the tile lands, small clicks while the logo grows.
+// Opening, in real 3D: the glossy blue logo rises turning, grows stroke by stroke, lands with a rubbery squash,
+// then slides left as "Homing" comes out from behind it. ~2.7 s, once per session.
+// Sounds are made here with Web Audio: a rubbery bloop when the logo lands, small clicks while the logo grows.
 // Everything is a function of time t, so it can also be rendered frame by frame (window.__introSeek).
 import * as THREE from '/vendor/three.module.min.js';
 import { RoomEnvironment } from '/vendor/RoomEnvironment.js';
@@ -35,99 +35,81 @@ function run() {
   scene.add(sun, new THREE.AmbientLight(0xffffff, 0.35));
   // the wall behind it only catches the soft shadow
   const wall = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ opacity: 0.08 }));
-  wall.position.z = -0.55; wall.receiveShadow = true; scene.add(wall);
+  wall.position.z = -0.45; wall.receiveShadow = true; scene.add(wall);
 
-  // the tile: a thick rounded square with a big soft bevel, matte white rubber
-  const S = 1.7, R = 0.46, D = 0.22, BV = 0.13;
-  const sh = new THREE.Shape(), h = S / 2 - BV;
-  sh.moveTo(-h + R, -h); sh.lineTo(h - R, -h); sh.quadraticCurveTo(h, -h, h, -h + R); sh.lineTo(h, h - R);
-  sh.quadraticCurveTo(h, h, h - R, h); sh.lineTo(-h + R, h); sh.quadraticCurveTo(-h, h, -h, h - R); sh.lineTo(-h, -h + R);
-  sh.quadraticCurveTo(-h, -h, -h + R, -h);
-  const tg = new THREE.ExtrudeGeometry(sh, { depth: D, bevelEnabled: true, bevelThickness: BV, bevelSize: BV, bevelSegments: 12, curveSegments: 28 });
-  tg.translate(0, 0, -D / 2);
-  const rubber = new THREE.MeshPhysicalMaterial({ color: 0xf6f7f9, roughness: 0.62, clearcoat: 0.25, clearcoatRoughness: 0.5, sheen: 0.6, sheenRoughness: 0.8, sheenColor: 0xdfe6f3, envMapIntensity: 0.9 });
-  const tile = new THREE.Mesh(tg, rubber); tile.castShadow = true; tile.receiveShadow = true;
-  const rig = new THREE.Group(), body = new THREE.Group();
-  body.add(tile); rig.add(body); scene.add(rig);
-
-  // the logo, from the same paths as the 2D mark (48 x 48 box), as glossy blue tubes on the tile's face
-  const FRONT = D / 2 + BV, s = 1.12 / 40, cx = 24, cy = 25;
-  const P = (x, y, z = 0) => new THREE.Vector3((x - cx) * s, (cy - y) * s, FRONT + z);
+  // the logo alone, from the same paths as the 2D mark (48 x 48 box), as thick glossy blue tubes
+  const s = 1.12 / 40, cx = 24, cy = 25, LW = 1.12;
+  const P = (x, y, z = 0) => new THREE.Vector3((x - cx) * s, (cy - y) * s, z);
   const blue = new THREE.MeshPhysicalMaterial({ color: 0x0a4fc4, roughness: 0.24, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.1 });
-  const logo = new THREE.Group(); body.add(logo);
+  const rig = new THREE.Group(), body = new THREE.Group(), logo = new THREE.Group();
+  body.add(logo); rig.add(body); scene.add(rig);
   class Ring extends THREE.Curve { getPoint(t, o = new THREE.Vector3()) { const a = (150 / 180) * Math.PI + t * Math.PI * 2; return o.copy(P(36 + 8 * Math.cos(a), 14 + 8 * Math.sin(a))); } }
   const strokes = [
-    { c: new THREE.CubicBezierCurve3(P(8, 40), P(10, 22), P(21, 15), P(29.2, 17.8)), w: 3.4, from: 0.62, to: 1.0 },
-    { c: new THREE.QuadraticBezierCurve3(P(25.9, 9), P(29, 15.5), P(33.5, 24.5)), w: 2.7, from: 1.0, to: 1.1 },
-    { c: new THREE.QuadraticBezierCurve3(P(34.5, 10.8), P(29.6, 14.5), P(24.6, 26.1)), w: 2.7, from: 1.1, to: 1.2 },
-    { c: new Ring(), w: 3.4, from: 1.18, to: 1.52, closed: true },
+    { c: new THREE.CubicBezierCurve3(P(8, 40), P(10, 22), P(21, 15), P(29.2, 17.8)), w: 3.4, from: 0.12, to: 0.5 },
+    { c: new THREE.QuadraticBezierCurve3(P(25.9, 9), P(29, 15.5), P(33.5, 24.5)), w: 2.7, from: 0.5, to: 0.59 },
+    { c: new THREE.QuadraticBezierCurve3(P(34.5, 10.8), P(29.6, 14.5), P(24.6, 26.1)), w: 2.7, from: 0.59, to: 0.68 },
+    { c: new Ring(), w: 3.4, from: 0.66, to: 0.98, closed: true },
   ];
-  const RAD = 12, SEG = 72;
+  const RAD = 14, SEG = 80;
   for (const k of strokes) {
-    const r = (k.w / 2) * s * 1.55, lift = r * 0.45;
-    const g = new THREE.TubeGeometry(k.c, SEG, r, RAD, !!k.closed); g.translate(0, 0, lift);
-    k.mesh = new THREE.Mesh(g, blue); k.mesh.castShadow = true;
+    const r = (k.w / 2) * s * 1.6;
+    k.mesh = new THREE.Mesh(new THREE.TubeGeometry(k.c, SEG, r, RAD, !!k.closed), blue); k.mesh.castShadow = true;
     const cap = new THREE.SphereGeometry(r, 20, 14);
     k.a = new THREE.Mesh(cap, blue); k.b = new THREE.Mesh(cap, blue); k.a.castShadow = k.b.castShadow = true;
-    k.lift = lift; logo.add(k.mesh, k.a, k.b);
+    logo.add(k.mesh, k.a, k.b);
   }
   const dot = new THREE.Mesh(new THREE.SphereGeometry(3.7 * s * 1.3, 32, 20), blue);
-  dot.position.copy(P(8, 40, 3.7 * s * 0.5)); dot.castShadow = true; logo.add(dot);
+  dot.position.copy(P(8, 40)); dot.castShadow = true; logo.add(dot);
 
   // ---------- timing helpers ----------
   const clamp = (x) => Math.min(1, Math.max(0, x));
   const spring = (t, f, d) => (t <= 0 ? 0 : 1 - Math.exp(-d * t) * Math.cos(f * t));
   const ease = (x) => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
-  const LAND = 0.37;
-  let px = 160;
+  const LAND = 0.34, SLIDE = 1.05, SLIDE_D = 0.7;
+  let L = 90, ppu = 80;
+  const word = name.firstElementChild;
 
   function fit() {
     const w = innerWidth, hgt = innerHeight;
     renderer.setSize(w, hgt, false); cam.aspect = w / hgt;
-    px = Math.min(w * 0.42, hgt * 0.24, 200); // the tile's size on screen
-    const dist = (S * hgt) / (px * 2 * Math.tan((cam.fov * Math.PI) / 360));
-    cam.userData.dist = dist; cam.updateProjectionMatrix();
+    L = Math.min(w * 0.2, hgt * 0.14, 104);   // the logo's width on screen
+    ppu = L / LW;
+    const dist = hgt / (ppu * 2 * Math.tan((cam.fov * Math.PI) / 360));
+    cam.position.set(0, 0, dist); cam.lookAt(0, 0, 0); cam.updateProjectionMatrix();
+    name.style.fontSize = Math.round(L * 0.62) + 'px';
   }
 
   function draw(t) {
-    // drop in from below with a spring, land at ~0.37 s, settle
-    const up = spring(t, 4.25, 3.6);
-    const v = (spring(t + 0.01, 4.25, 3.6) - up) / 0.01; // speed, for squash and stretch
-    const endUp = ease((t - 1.55) / 0.6) * 0.32;          // lifts a little to make room for the name
-    rig.position.y = -3.2 * (1 - up) + endUp;
-    const st = Math.max(-0.16, Math.min(0.2, v * 0.05));
-    // after landing the rubber jiggles (squash then a few soft wobbles)
-    const jig = t > LAND ? Math.exp(-(t - LAND) * 6.5) * Math.sin((t - LAND) * 30) * 0.09 : 0;
+    // rises from below while turning (seen in 3D from the side), lands with a rubbery squash, faces you
+    const up = spring(t, 4.6, 4);
+    const v = (spring(t + 0.01, 4.6, 4) - up) / 0.01;
+    const st = Math.max(-0.14, Math.min(0.2, v * 0.045));
+    const jig = t > LAND ? Math.exp(-(t - LAND) * 6) * Math.sin((t - LAND) * 28) * 0.1 : 0;
     const sy = 1 + st - jig, sx = 1 / Math.sqrt(Math.max(0.6, sy));
-    body.scale.set(sx, sy, 1 + jig * 0.5);
-    // turned towards the light while flying, wobbles round to face you at the end
-    const face = spring(t - 1.25, 9, 5.5);
-    rig.rotation.x = (0.95 * (1 - up) + 0.3) * (1 - face);
-    rig.rotation.y = (-0.42 + 0.18 * up) * (1 - face);
-    rig.rotation.z = jig * 0.6 + 0.05 * (1 - up);
-    // logo: the dot pops, then each stroke grows out of the face
-    const dp = spring(t - 0.48, 16, 7);
-    dot.scale.setScalar(Math.max(0.0001, dp));
+    body.scale.set(sx, sy, 1);
+    const face = spring(t - 0.15, 5.5, 4.2);
+    rig.rotation.set(0.5 * (1 - face), 1.1 * (1 - face), -1.0 * (1 - up) + jig * 0.5);
+    // then it slides left and the name comes out from behind it
+    const sl = ease((t - SLIDE) / SLIDE_D);
+    const nameW = word.offsetWidth, gap = L * 0.3;
+    const shift = ((gap + nameW) / 2) * sl;
+    rig.position.set(-shift / ppu, -2.4 * (1 - up), 0);
+    // logo: the dot pops, then each stroke grows
+    dot.scale.setScalar(Math.max(0.0001, spring(t - 0.06, 16, 7)));
     for (const k of strokes) {
       const p = clamp((t - k.from) / (k.to - k.from));
       const seg = Math.round(p * SEG);
       k.mesh.visible = seg > 0; k.mesh.geometry.setDrawRange(0, seg * RAD * 6);
-      const grow = spring(t - k.from, 18, 8); // tubes swell from the surface as they grow
+      const grow = Math.max(0.0001, spring(t - k.from, 18, 8));
       k.a.visible = k.b.visible = p > 0 && !(k.closed && p >= 1);
-      k.a.position.copy(k.c.getPoint(0)).setZ(FRONT + k.lift); k.b.position.copy(k.c.getPoint(Math.max(0.0001, p))).setZ(FRONT + k.lift);
-      k.a.scale.setScalar(Math.max(0.0001, grow)); k.b.scale.setScalar(Math.max(0.0001, grow));
+      k.a.position.copy(k.c.getPoint(0)); k.b.position.copy(k.c.getPoint(Math.max(0.0001, p)));
+      k.a.scale.setScalar(grow); k.b.scale.setScalar(grow);
     }
-    // camera drifts slowly, like a hand-held product shot
-    const d = cam.userData.dist;
-    const drift = 1 - ease(t / 2.4);
-    cam.position.set(0.5 * drift, -0.2 * drift + 0.0, d * (1 + 0.12 * drift));
-    cam.lookAt(0, 0.06 * drift, 0);
     renderer.render(scene, cam);
-    // the name comes up under the tile with a soft overshoot
-    const n = spring(t - 1.62, 11, 6.5);
-    name.style.top = innerHeight / 2 + px * 0.6 + "px";
-    name.style.opacity = clamp((t - 1.62) / 0.18);
-    name.style.transform = `translateY(${(1 - n) * 26}px) scale(${0.94 + 0.06 * n})`;
+    // the name: a clip box that starts at the logo's right edge, the word slides out of it
+    name.style.left = innerWidth / 2 - shift + L * 0.56 + gap * 0.45 + 'px';
+    name.style.top = innerHeight / 2 + 'px';
+    word.style.transform = `translateX(${-(nameW + gap) * (1 - sl)}px)`;
   }
 
   // ---------- sound ----------
@@ -166,12 +148,13 @@ function run() {
   function score() {
     if (!ac) return;
     const t = ac.currentTime + 0.02;
-    whoosh(t + 0.02, 0.36, 260, 1400, 0.07);
-    thump(t + LAND, 0.32); bloop(t + LAND, 190, 820, 0.26, 0.15);  // lands: soft rubber bloop
-    bloop(t + 0.5, 520, 1250, 0.12, 0.1);                           // the dot pops out
-    for (let k = 0, x = 0.64; x < 1.52; x += 0.075, k++) tick(t + x, k % 2 ? 0.16 : 0.22, k % 2 ? 4200 : 5300); // the logo grows
-    bloop(t + 1.52, 660, 1500, 0.1, 0.09);                          // the ring closes
-    tick(t + 1.64, 0.24, 3600); bloop(t + 1.66, 300, 600, 0.08, 0.12); // the name lands
+    whoosh(t + 0.0, 0.32, 260, 1500, 0.07);                        // it flies up
+    bloop(t + 0.06, 420, 1100, 0.14, 0.1);                          // the dot pops out
+    thump(t + LAND, 0.28); bloop(t + LAND, 190, 820, 0.24, 0.15);  // lands: soft rubber bloop
+    for (let k = 0, x = 0.14; x < 0.98; x += 0.07, k++) tick(t + x, k % 2 ? 0.16 : 0.22, k % 2 ? 4200 : 5300); // the logo grows
+    bloop(t + 0.98, 660, 1500, 0.11, 0.09);                         // the ring closes
+    whoosh(t + SLIDE, SLIDE_D * 0.9, 2400, 600, 0.06);              // the name slides out
+    tick(t + SLIDE + SLIDE_D - 0.04, 0.22, 3600); bloop(t + SLIDE + SLIDE_D - 0.02, 300, 620, 0.08, 0.12); // and stops
   }
 
   // ---------- play ----------
