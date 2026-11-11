@@ -38,13 +38,16 @@ function movePill(box, quiet) {
 }
 document.addEventListener('click', (e) => { const b = e.target.closest('.chips button'); if (b) { movePill(b.parentElement); haptic('light'); } });
 addEventListener('resize', () => $$('.chips').forEach((b) => movePill(b, true)));
-try { me = JSON.parse(localStorage.getItem('homing.user') || 'null'); } catch {}
+// localStorage only remembers what to show (name, photo) for a fast first paint. It proves nothing:
+// who is signed in is the server's httpOnly session cookie, checked again with /api/whoami at start.
+const keep = (u) => (u ? { id: u.id, name: u.name, fullName: u.fullName, country: u.country, avatar: u.avatar || null } : null);
+const remember = () => { try { me ? localStorage.setItem('homing.user', JSON.stringify(keep(me))) : localStorage.removeItem('homing.user'); } catch {} };
+try { me = keep(JSON.parse(localStorage.getItem('homing.user') || 'null')); } catch {}
 
 const api = async (url, opts = {}) => {
   const headers = { ...(opts.headers || {}) };
-  if (me) headers['x-user'] = me.id;
   if (opts.json) { headers['content-type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
-  const r = await fetch(url, { ...opts, headers });
+  const r = await fetch(url, { ...opts, headers, credentials: 'same-origin' });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || 'Something went wrong.');
   return j;
@@ -104,15 +107,16 @@ document.addEventListener('pointerdown', (e) => {
 $('#back').onclick = () => (depth > 0 ? history.back() : (location.hash = 'home'));
 
 async function route() {
-  if (location.hash.startsWith('#signed/')) {
-    // back from PayPal: the server made or found the account
+  if (location.hash.startsWith('#signed')) {
+    // back from PayPal: the server made or found the account and set the session cookie
     me = null;
-    try { me = await api('/api/whoami', { headers: { 'x-user': location.hash.split('/')[1] } }); localStorage.setItem('homing.user', JSON.stringify(me)); setupForUser(); toast(`Signed in with PayPal as ${me.fullName || me.name}.`); }
-    catch { me = null; }
+    try { me = keep(await api('/api/whoami')); remember(); setupForUser(); toast(`Signed in with PayPal as ${me.fullName || me.name}.`); }
+    catch { me = null; remember(); }
     history.replaceState(null, '', '/#home');
   }
   if (!me) return show('signin');
-  const [name, arg] = location.hash.slice(1).split('/');
+  const [name, raw] = location.hash.slice(1).split('/');
+  const arg = /^[a-z]_[a-z0-9_]{1,40}$/.test(raw || '') ? raw : ''; // ids only, never a path
   stopWaiting();
   refreshBadge();
   switch (name) {
@@ -137,12 +141,12 @@ async function route() {
 // ---------- sign in ----------
 $('#demoBtn').onclick = async () => {
   try {
-    me = await api('/api/signin/demo', { method: 'POST', json: {} });
-    localStorage.setItem('homing.user', JSON.stringify(me));
+    me = keep(await api('/api/signin/demo', { method: 'POST', json: {} }));
+    remember();
     setupForUser(); location.hash = 'home'; route();
   } catch (err) { $('#signinErr').textContent = err.message; }
 };
-$('#signout').onclick = () => { localStorage.removeItem('homing.user'); me = null; location.hash = ''; show('signin'); };
+$('#signout').onclick = async () => { await api('/api/signout', { method: 'POST', json: {} }).catch(() => {}); me = null; remember(); location.hash = ''; show('signin'); };
 
 function setupForUser() {
   avatar($('#meAv'), me.name, me.avatar);
@@ -315,7 +319,7 @@ function waitForBuyer(out) {
   waitT = setInterval(() => { left--; tick(); if (left <= 0) { clearInterval(waitT); clearInterval(pollT); noBuyer(out.listing.id, `${names(who)} didn't buy yet.`); } }, 1000);
   pollT = setInterval(async () => {
     try {
-      const l = await api(`/api/listings/${out.listing.id}?userId=${me.id}`);
+      const l = await api(`/api/listings/${out.listing.id}`);
       if (l.status === 'sold') { clearInterval(waitT); clearInterval(pollT); sold(l); }
     } catch {}
   }, 2000);
@@ -331,7 +335,7 @@ function sold(l) {
   dotSwap('#pDot', 'happy'); haptic('success');
   const o = $('#pOutcome');
   o.hidden = false;
-  o.innerHTML = `<a class="primary" href="#ship/${l.id}" style="margin-top:4px">Ship it</a><div class="rate"></div>`;
+  o.innerHTML = `<a class="primary" href="#ship/${esc(l.id)}" style="margin-top:4px">Ship it</a><div class="rate"></div>`;
   seenSold.add(l.id); saveSeen();
   rateForm($('.rate', o), l, 'seller', l.buyer.name);
 }
@@ -455,7 +459,7 @@ const ttlSeen = new IntersectionObserver(([e]) => document.body.classList.toggle
 ttlSeen.observe($('#iTitle'));
 async function openItem(lid) {
   let l;
-  try { l = await api(`/api/listings/${lid}?userId=${me.id}`); }
+  try { l = await api(`/api/listings/${lid}`); }
   catch (err) { toast(err.message); location.hash = 'browse'; return; }
   $('#iImg').src = l.photo || ''; $('#iImg').style.viewTransitionName = 'photo';
   $('#iTitle').textContent = l.title; $('#topTtl').textContent = l.title;
@@ -505,7 +509,7 @@ async function openItem(lid) {
 
 // ---------- paid + reviews ----------
 async function openPaid(lid) {
-  const l = await api(`/api/listings/${lid}?userId=${me.id}`).catch(() => null);
+  const l = await api(`/api/listings/${lid}`).catch(() => null);
   if (!l || !l.boughtByMe) { location.hash = 'home'; return; }
   $('#paidSub').textContent = `Paid with PayPal to ${l.seller.name}.`;
   countUp($('#paidAmt'), l.price, l.currency);
@@ -538,17 +542,17 @@ async function openMe() {
   const d = await api('/api/me').catch(() => null);
   if (!d) return;
   avatar($('#mAv'), d.user.name, d.user.avatar);
-  if (d.user.avatar !== me.avatar) { me.avatar = d.user.avatar; localStorage.setItem('homing.user', JSON.stringify(me)); setupForUser(); }
+  if (d.user.avatar !== me.avatar) { me.avatar = d.user.avatar; remember(); setupForUser(); }
   $('#mName').textContent = d.user.name;
   $('#mStats').innerHTML = `${esc(meta.countries[d.user.country].name)} · ${d.user.sold} sold · ${d.user.bought} bought${d.user.stars ? ` · ${STAR} ${d.user.stars}` : ''}`;
-  $('#mSell').innerHTML = d.mine.length ? d.mine.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)}${l.status === 'sold' ? ' · sold to ' + esc(l.buyer.name) : ''}</small></a>
-    <span class="act">${l.status === 'sold' ? (l.track && l.track.status !== 'paid' ? `<a class="tag ${l.track.delivered ? 'ok' : 'blue'}" href="#ship/${l.id}">${esc(l.track.say)}</a>` : `<a class="tag blue" href="#ship/${l.id}">Ship it</a>`) : `<span class="tag">For sale</span><button class="danger" data-del="${l.id}">Delete</button>`}</span></li>`).join('')
+  $('#mSell').innerHTML = d.mine.length ? d.mine.map((l) => `<li><a href="#item/${esc(l.id)}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${esc(l.id)}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)}${l.status === 'sold' ? ' · sold to ' + esc(l.buyer.name) : ''}</small></a>
+    <span class="act">${l.status === 'sold' ? (l.track && l.track.status !== 'paid' ? `<a class="tag ${l.track.delivered ? 'ok' : 'blue'}" href="#ship/${esc(l.id)}">${esc(l.track.say)}</a>` : `<a class="tag blue" href="#ship/${esc(l.id)}">Ship it</a>`) : `<span class="tag">For sale</span><button class="danger" data-del="${esc(l.id)}">Delete</button>`}</span></li>`).join('')
     : '<li class="none"><img class="dotmini" src="/img/dot-sleep.webp" alt="">Nothing yet. <a href="#sell"><u>Sell something</u></a></li>';
-  $('#mLook').innerHTML = d.looking.length ? d.looking.map((w) => `<li>${SEARCH}<span class="t"><b>${esc(w.what)}</b><small>${money(w.minPrice)} to ${money(w.maxPrice)} · ${esc(w.category)}</small>${w.found.length ? `<span class="found">${w.found.map((f) => `<a href="#item/${f.listing.id}"><img src="${esc(f.listing.photo)}" alt="${esc(f.listing.title)}"></a>`).join('')}</span>` : ''}</span>
-    <span class="act">${w.found.length ? `<span class="tag blue">${w.found.length} found</span>` : '<span class="tag">Looking</span>'}<button class="danger" data-delw="${w.id}">Delete</button></span></li>`).join('')
+  $('#mLook').innerHTML = d.looking.length ? d.looking.map((w) => `<li>${SEARCH}<span class="t"><b>${esc(w.what)}</b><small>${money(w.minPrice)} to ${money(w.maxPrice)} · ${esc(w.category)}</small>${w.found.length ? `<span class="found">${w.found.map((f) => `<a href="#item/${esc(f.listing.id)}"><img src="${esc(f.listing.photo)}" alt="${esc(f.listing.title)}"></a>`).join('')}</span>` : ''}</span>
+    <span class="act">${w.found.length ? `<span class="tag blue">${w.found.length} found</span>` : '<span class="tag">Looking</span>'}<button class="danger" data-delw="${esc(w.id)}">Delete</button></span></li>`).join('')
     : '<li class="none"><img class="dotmini" src="/img/dot-search.webp" alt="">Nothing yet. <a href="#buy"><u>Say what you want</u></a></li>';
-  $('#mBought').innerHTML = d.bought.length ? d.bought.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)} · from ${esc(l.seller.name)}${l.track ? ` · ${esc(l.track.say)}` : ''}</small></a>
-    <span class="act">${l.reviews?.buyer ? '<span class="tag ok">Done</span>' : `<a class="tag blue" href="#item/${l.id}">Rate ${esc(l.seller.name)}</a>`}</span></li>`).join('')
+  $('#mBought').innerHTML = d.bought.length ? d.bought.map((l) => `<li><a href="#item/${esc(l.id)}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${esc(l.id)}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)} · from ${esc(l.seller.name)}${l.track ? ` · ${esc(l.track.say)}` : ''}</small></a>
+    <span class="act">${l.reviews?.buyer ? '<span class="tag ok">Done</span>' : `<a class="tag blue" href="#item/${esc(l.id)}">Rate ${esc(l.seller.name)}</a>`}</span></li>`).join('')
     : '<li class="none"><img class="dotmini" src="/img/dot-hello.webp" alt="">Nothing yet.</li>';
   $$('[data-del]').forEach((b) => (b.onclick = async () => { await api(`/api/listings/${b.dataset.del}`, { method: 'DELETE' }); toast('Deleted.'); openMe(); }));
   $$('[data-delw]').forEach((b) => (b.onclick = async () => { await api(`/api/wants/${b.dataset.delw}`, { method: 'DELETE' }); toast('Deleted.'); openMe(); }));
@@ -563,11 +567,11 @@ async function openBoard() {
   let rows = await api(`/api/leaderboard?country=${me.country}&by=${boardBy}`).catch(() => []);
   const key = boardBy === 'sellers' ? 'sold' : 'bought';
   const top = rows.length >= 3 ? rows.slice(0, 3) : [];
-  $('#podium').innerHTML = top.length ? [1, 0, 2].map((i) => { const u = top[i]; return `<a class="pod p${i + 1}" href="#user/${u.id}">${av(u.name, i ? 'lg' : 'xl', u.avatar)}<span class="medal">${i + 1}</span><b>${esc(u.name)}</b><small>${u[key]} ${key}</small><span class="ps">${u.stars ? STAR + u.stars.toFixed(1) : ''}</span></a>`; }).join('') : '';
-  $('#rBody').innerHTML = rows.map((u, i) => `<tr class="${u.id === me.id ? 'you' : ''}"><td class="n">${i + 1}</td><td><a href="#user/${u.id}">${av(u.name, '', u.avatar)}<b>${esc(u.name)}</b></a></td><td>${u.sold}</td><td>${u.bought}</td><td class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</td><td><a href="#user/${u.id}" aria-label="Open ${esc(u.name)}">${CHEV}</a></td></tr>`).join('')
+  $('#podium').innerHTML = top.length ? [1, 0, 2].map((i) => { const u = top[i]; return `<a class="pod p${i + 1}" href="#user/${esc(u.id)}">${av(u.name, i ? 'lg' : 'xl', u.avatar)}<span class="medal">${i + 1}</span><b>${esc(u.name)}</b><small>${u[key]} ${key}</small><span class="ps">${u.stars ? STAR + u.stars.toFixed(1) : ''}</span></a>`; }).join('') : '';
+  $('#rBody').innerHTML = rows.map((u, i) => `<tr class="${u.id === me.id ? 'you' : ''}"><td class="n">${i + 1}</td><td><a href="#user/${esc(u.id)}">${av(u.name, '', u.avatar)}<b>${esc(u.name)}</b></a></td><td>${u.sold}</td><td>${u.bought}</td><td class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</td><td><a href="#user/${esc(u.id)}" aria-label="Open ${esc(u.name)}">${CHEV}</a></td></tr>`).join('')
     || `<tr><td colspan="6">${dot('hello', 'No deals yet', 'The first deal in your country puts you on top.', 'sm')}</td></tr>`;
   rows = rows.slice(top.length);
-  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${u.id}"><span class="n">${i + 1 + top.length}</span>${av(u.name, '', u.avatar)}
+  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${esc(u.id)}"><span class="n">${i + 1 + top.length}</span>${av(u.name, '', u.avatar)}
     <span class="t"><b>${esc(u.name)}</b><small>${u.sold} sold · ${u.bought} bought</small></span>
     <span class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</span>${CHEV}</a></li>`).join('')
     : `<li style="display:block;border:0">${dot('hello', 'No deals yet', 'The first deal in your country puts you on top.')}</li>`;
@@ -588,10 +592,10 @@ async function openBoard() {
     if (q.get('error')) setTimeout(() => toast(q.get('error')), 300);
     history.replaceState(null, '', '/#' + h);
   } else if (q.has('error')) { const m = q.get('error'); setTimeout(() => { $('#signinErr').textContent = m; toast(m); }, 300); history.replaceState(null, '', '/' + location.hash); }
-  if (me && !meta.countries[me.country]) me = null;
-  if (me) {
-    try { me = await api('/api/whoami'); localStorage.setItem('homing.user', JSON.stringify(me)); }
-    catch { me = null; }
+  if (!location.hash.startsWith('#signed')) {
+    try { me = keep(await api('/api/whoami')); } catch { me = null; }
+    if (me && !meta.countries[me.country]) me = null;
+    remember();
   }
   if (me) setupForUser();
   route();
@@ -747,7 +751,7 @@ $('#mAvIn')?.addEventListener('change', async (e) => {
   const fd = new FormData(); fd.append('photo', f);
   try {
     const u = await api('/api/me/avatar', { method: 'POST', body: fd });
-    me.avatar = u.avatar; localStorage.setItem('homing.user', JSON.stringify(me));
+    me.avatar = u.avatar; remember();
     setupForUser(); avatar($('#mAv'), me.name, me.avatar); haptic?.('success'); toast('New photo saved.');
   } catch (err) { toast(err.message); }
 });
@@ -772,7 +776,7 @@ function trackView(box, t, lid, side) {
     const here = location.hash;
     trackTimer = setTimeout(async () => {
       if (location.hash !== here || !box.isConnected) return;
-      try { const l = await api(`/api/listings/${lid}?userId=${me.id}`); if (l.track && l.track.status !== t.status) haptic('light'); trackView(box, l.track, lid, side); } catch {}
+      try { const l = await api(`/api/listings/${lid}`); if (l.track && l.track.status !== t.status) haptic('light'); trackView(box, l.track, lid, side); } catch {}
     }, 15000);
   }
 }
