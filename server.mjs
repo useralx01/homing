@@ -257,7 +257,13 @@ app.get('/paypal/return', async (q, s) => {
   if (o.soldTo && o.soldTo !== wid) return s.redirect(`/?inbox=${wid}&late=1`);
   try {
     if (!o.soldTo) {
-      const cap = await pp('POST', `/v2/checkout/orders/${token}/capture`);
+      // A refresh or double click can arrive after PayPal already captured it: read the order instead of failing.
+      let cap;
+      try { cap = await pp('POST', `/v2/checkout/orders/${token}/capture`); }
+      catch (e) {
+        cap = await pp('GET', `/v2/checkout/orders/${token}`);
+        if (cap.status !== 'COMPLETED') throw e;
+      }
       const c = cap.purchase_units?.[0]?.payments?.captures?.[0];
       o.soldTo = wid;
       o.capture = { id: c?.id, status: c?.status || cap.status, amount: c?.amount, payer: cap.payer?.email_address || null, at: Date.now() };
