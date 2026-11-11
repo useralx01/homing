@@ -568,14 +568,14 @@ function openSheet() {
   if (!canMorph()) { sh.hidden = false; document.body.classList.add('locked'); requestAnimationFrame(() => sh.classList.add('open')); return; }
   btn.style.viewTransitionName = 'buy'; document.documentElement.dataset.dir = 'sheet';
   const t = document.startViewTransition(() => { btn.style.viewTransitionName = ''; panel.style.viewTransitionName = 'buy'; sh.classList.add('instant'); sh.hidden = false; sh.classList.add('open'); document.body.classList.add('locked'); });
-  t.finished.finally(() => { panel.style.viewTransitionName = ''; sh.classList.remove('instant'); });
+  t.ready.catch(() => {}); t.finished.catch(() => {}).finally(() => { panel.style.viewTransitionName = ''; sh.classList.remove('instant'); });
 }
 function closeSheet() {
   const sh = $('#sheet'), panel = $('.sheet-panel', sh), btn = $('#iBarBtn');
   if (!canMorph() || !btn.offsetParent) { sh.classList.remove('open'); document.body.classList.remove('locked'); setTimeout(() => (sh.hidden = true), 280); return; }
   panel.style.viewTransitionName = 'buy'; document.documentElement.dataset.dir = 'sheet';
   const t = document.startViewTransition(() => { panel.style.viewTransitionName = ''; btn.style.viewTransitionName = 'buy'; sh.classList.add('instant'); sh.classList.remove('open'); sh.hidden = true; document.body.classList.remove('locked'); });
-  t.finished.finally(() => { btn.style.viewTransitionName = ''; sh.classList.remove('instant'); });
+  t.ready.catch(() => {}); t.finished.catch(() => {}).finally(() => { btn.style.viewTransitionName = ''; sh.classList.remove('instant'); });
 }
 $('#sheetBg').onclick = closeSheet;
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
