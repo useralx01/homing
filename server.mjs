@@ -413,12 +413,17 @@ app.get('/paypal/return', async (q, s) => {
 const states = new Map();
 app.get('/auth/paypal', (q, s) => {
   const st = crypto.randomBytes(12).toString('hex');
-  const back = origin(q) + '/auth/paypal/return';
-  states.set(st, { back, at: Date.now() });
-  s.redirect(PP_WEB + '/signin/authorize?' + new URLSearchParams({ flowEntry: 'static', client_id: PP_ID, response_type: 'code', scope: 'openid profile email address', redirect_uri: back, state: st }));
+  // PayPal only accepts public https return links, so it returns to a tiny page on GitHub Pages
+  // (docs/return.html) that forwards the code back to this server. The state says where "back" is.
+  const here = origin(q);
+  states.set(st, { back: here, at: Date.now() });
+  const bounce = process.env.AUTH_BOUNCE || 'https://useralx01.github.io/homing/return.html';
+  const state = st + '.' + Buffer.from(here).toString('base64url');
+  s.redirect(PP_WEB + '/signin/authorize?' + new URLSearchParams({ flowEntry: 'static', client_id: PP_ID, response_type: 'code', scope: 'openid profile email address', redirect_uri: bounce, state }));
 });
 app.get('/auth/paypal/return', async (q, s) => {
-  const st = states.get(String(q.query.state || '')); states.delete(String(q.query.state || ''));
+  const key = String(q.query.state || '').split('.')[0];
+  const st = states.get(key); states.delete(key);
   if (q.query.error || !q.query.code) return s.redirect('/?error=' + encodeURIComponent(q.query.error_description || 'PayPal sign-in was cancelled.'));
   if (!st) return s.redirect('/?error=' + encodeURIComponent('Sign-in expired, try again.'));
   try {
