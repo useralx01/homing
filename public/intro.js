@@ -1,4 +1,4 @@
-// Opening: the logo forms itself like living blue gummy jelly, in real 3D (own ray-marched shader, plain WebGL).
+// Opening: the logo forms itself like living blue toy plastic (cartoon style), in real 3D (own ray-marched shader, plain WebGL).
 // A drop falls and splats into the dot, pours out along the stem as a gooey stream, puffs up into the ring,
 // the cross snaps across, everything jiggles like jelly and sets. Then it slides left and "Homing" comes out
 // from behind it. Sounds are made here with Web Audio. Everything is a function of time t (window.__introSeek).
@@ -46,24 +46,21 @@ float map(vec3 p){
   return d*min(uScale.x,min(uScale.y,uScale.z))*.85;
 }
 vec3 nor(vec3 p){vec2 k=vec2(1.,-1.)*.0015;return normalize(k.xyy*map(p+k.xyy)+k.yyx*map(p+k.yyx)+k.yxy*map(p+k.yxy)+k.xxx*map(p+k.xxx));}
-// gummy: see-through blue jelly. Thin parts glow light blue, thick parts go deep blue, light shines through it.
-float thick(vec3 p,vec3 dir){ float t=.012; for(int i=0;i<22;i++){ float d=map(p+dir*t); if(d>0.)break; t+=max(-d,.012); } return t; }
+// toy plastic: solid, glossy, saturated blue, like a cartoon toy. Big soft shine, bright rim, a bounce light from the floor.
 vec3 shade(vec3 p,vec3 rd){
-  vec3 n=nor(p), v=-rd, l=normalize(vec3(-.45,.75,.65));
-  float th=thick(p-n*.004,rd);
-  float tl=thick(p-n*.004,l);
-  float tr=exp(-th*8.5);
-  vec3 deep=vec3(.01,.09,.45), mid=vec3(.03,.33,.88), lite=vec3(.32,.6,1.);
-  vec3 col=mix(deep,mid,smoothstep(.0,.35,tr));
-  col=mix(col,lite,tr*tr*.6);
-  col+=vec3(.2,.45,1.)*exp(-tl*7.)*.30;
-  float dif=max(dot(n,l),0.);
-  col*=.82+.25*dif;
+  vec3 n=nor(p), v=-rd, l=normalize(vec3(-.5,.8,.6));
+  vec3 base=vec3(.06,.42,1.);
+  float dif=dot(n,l)*.5+.5;                                  // wrapped light: soft, toy-like
+  dif=smoothstep(.05,1.,dif);
+  float ao=clamp(.45+.55*map(p+n*.1)/.1,0.,1.);
+  vec3 col=mix(base*.42,base*1.05,dif)*ao;
+  col+=vec3(.25,.45,1.)*.22*clamp(-n.y,0.,1.);              // light bouncing up from the white floor
   vec3 r=reflect(rd,n);
-  col+=vec3(.85,.93,1.)*.16*smoothstep(.1,1.,r.y);
-  col+=pow(max(dot(reflect(-l,n),v),0.),140.)*1.1;
-  col+=pow(max(dot(reflect(-normalize(vec3(.6,.2,.8)),n),v),0.),60.)*.35;
-  col+=pow(1.-max(dot(n,v),0.),2.5)*vec3(.45,.68,1.)*.35;
+  float sp=pow(max(dot(reflect(-l,n),v),0.),28.);
+  col+=vec3(1.)*smoothstep(.35,.6,sp)*.75;                    // big soft shine with a clean edge
+  col+=pow(max(dot(reflect(-l,n),v),0.),200.)*.6;
+  col+=vec3(.8,.9,1.)*.10*smoothstep(.3,1.,r.y);
+  col+=pow(1.-max(dot(n,v),0.),3.)*vec3(.55,.75,1.)*.55;     // bright rim
   return min(col,vec3(1.));
 }
 void main(){
@@ -86,7 +83,7 @@ void main(){
       sa=.20*(1.-clamp(res,0.,1.));
     }
   }
-  vec3 tint=vec3(.42,.62,1.);
+  vec3 tint=vec3(.55,.66,.9);
   gl_FragColor=vec4(col*edge+tint*sa*(1.-edge), edge+sa*(1.-edge));
 }`;
   const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
@@ -283,17 +280,33 @@ void main(){
     const n = noise(0.03), bp = ac.createBiquadFilter(), g = ac.createGain(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 6;
     env(g, t, peak, 0.0015, 0.025); n.connect(bp); bp.connect(g); g.connect(bus); n.start(t); n.stop(t + 0.03);
   }
+  function slide(t, f0, f1, d, peak) { // slide whistle
+    const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d);
+    lfo.frequency.value = 7; lg.gain.value = f1 * 0.012; lfo.connect(lg); lg.connect(o.frequency);
+    env(g, t, peak, 0.03, d); o.connect(g); g.connect(bus); o.start(t); lfo.start(t); o.stop(t + d + 0.02); lfo.stop(t + d + 0.02);
+  }
+  function boing(t, peak) { // a spring: pitch wobbles fast and falls
+    const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(330, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.45);
+    lfo.frequency.setValueAtTime(22, t); lfo.frequency.linearRampToValueAtTime(9, t + 0.45);
+    lg.gain.setValueAtTime(90, t); lg.gain.exponentialRampToValueAtTime(4, t + 0.45); lfo.connect(lg); lg.connect(o.frequency);
+    env(g, t, peak, 0.005, 0.5); o.connect(g); g.connect(bus); o.start(t); lfo.start(t); o.stop(t + 0.52); lfo.stop(t + 0.52);
+  }
+  function xylo(t, f, peak = 0.16) { // a wooden xylophone note
+    [1, 3.9, 9.2].forEach((m, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = f * m;
+      env(g, t, peak / (1 + i * 2.5), 0.002, 0.35 / (1 + i)); o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.4); });
+  }
   function score() {
     if (!ac) return;
     const t = ac.currentTime + 0.02;
-    bloop(t, 1300, 520, 0.05, 0.28);                                   // the drop falls
-    thump(t + LAND, 0.3); bloop(t + LAND, 170, 760, 0.26, 0.16);       // splat
-    stretch(t + POUR, POUR_D);                                         // the stream pulls out
-    [0.42, 0.55, 0.68, 0.79].forEach((x, i) => bloop(t + x, 420 + i * 90, 900 + i * 120, 0.06, 0.07)); // little blubs
-    bloop(t + PUFF + 0.02, 260, 1250, 0.2, 0.18);                      // puffs into the ring
-    XS.forEach((x, i) => { tick(t + x + 0.02, 0.2, i ? 4300 : 5200); bloop(t + x + 0.02, 700 + i * 160, 1500, 0.08, 0.08); }); // the cross snaps
-    whoosh(t + SLIDE, SLIDE_D * 0.9, 2400, 600, 0.06);                 // the name slides out
-    tick(t + SLIDE + SLIDE_D - 0.04, 0.22, 3600); bloop(t + SLIDE + SLIDE_D - 0.02, 300, 620, 0.08, 0.12);
+    slide(t, 1500, 560, LAND - 0.02, 0.07);                              // the drop falls: slide whistle down
+    thump(t + LAND, 0.32); boing(t + LAND, 0.2);                         // splat + boing
+    slide(t + POUR + 0.02, 420, 1100, POUR_D - 0.05, 0.06);              // the stream pulls out: whistle up
+    bloop(t + PUFF + 0.02, 220, 1300, 0.26, 0.2);                        // pop! the ring puffs up
+    XS.forEach((x, i) => xylo(t + x + 0.02, i ? 1046.5 : 784));          // the cross: two xylophone notes
+    [523.25, 659.25, 784, 1046.5].forEach((f, i) => xylo(t + SLIDE + 0.05 + i * 0.075, f, 0.13)); // the name: a little run
+    tick(t + SLIDE + SLIDE_D - 0.02, 0.18, 6000); xylo(t + SLIDE + SLIDE_D + 0.02, 1568, 0.09); // and a sparkle
   }
 
   // ---------- play ----------
