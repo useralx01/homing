@@ -46,6 +46,10 @@ const COUNTRIES = {
   IT: { name: 'Italy', currency: 'EUR' }, GB: { name: 'United Kingdom', currency: 'GBP' }, US: { name: 'United States', currency: 'USD' },
 };
 const CATEGORIES = ['Furniture', 'Home & kitchen', 'Electronics', 'Music', 'Bikes & sport', 'Fashion', 'Plants', 'Other'];
+// the version of public/legal/terms.html; stored with every sign-in, listing and purchase
+const TERMS_VERSION = '2026-11-11';
+const accepted = () => ({ version: TERMS_VERSION, at: Date.now() });
+const REPORT_REASONS = { illegal: 'Illegal item', banned: 'Banned item', fake: 'Fake or stolen', photo: 'Wrong photo', fraud: 'Fraud', review: 'Abusive review', other: 'Other' };
 
 // ---------- storage: one SQLite database (data/homing.db) ----------
 // Every person, item, want, review and shipment is a row. Rows are also kept in memory for speed;
@@ -58,7 +62,8 @@ const db = new DatabaseSync(DB_PATH);
 db.exec(`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 3000;
 CREATE TABLE IF NOT EXISTS rows (kind TEXT NOT NULL, id TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY (kind, id));
 CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, listing_id TEXT NOT NULL, buyer_id TEXT NOT NULL, at INTEGER NOT NULL);`);
+CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, listing_id TEXT NOT NULL, buyer_id TEXT NOT NULL, at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, at INTEGER NOT NULL, by_user TEXT NOT NULL, kind TEXT NOT NULL, target TEXT NOT NULL, reason TEXT NOT NULL, text TEXT NOT NULL, status TEXT NOT NULL);`);
 const KINDS = { users: 'users.json', listings: 'listings.json', wants: 'wants.json' };
 const readKind = (k) => db.prepare('SELECT body FROM rows WHERE kind = ? ORDER BY rowid').all(k).map((r) => JSON.parse(r.body));
 const putRow = db.prepare('INSERT INTO rows (kind, id, body) VALUES (?, ?, ?) ON CONFLICT (kind, id) DO UPDATE SET body = excluded.body');
@@ -127,7 +132,8 @@ const sessionUser = (q) => {
   const t = tokenOf(q); if (!t) return null;
   const row = sessGet.get(sha(t));
   if (!row || row.expires < Date.now()) return null;
-  return userOf(row.user_id) || null;
+  const u = userOf(row.user_id);
+  return u && !u.deleted ? u : null;
 };
 setInterval(() => { try { sessPurge.run(Date.now()); } catch {} }, 3600e3).unref();
 
@@ -435,6 +441,7 @@ function markSold(l, buyer, cap, via) {
   l.status = 'sold'; l.buyerId = buyer.id; l.soldAt = Date.now();
   l.capture = { id: c?.id || cap.id, orderId: cap.id, status: c?.status || cap.status, amount: c?.amount, via };
   l.reviews = {};
+  l.buyerAccepted = accepted(); // the buy sheet says "By buying you accept the Terms"
   // where it goes: the address PayPal confirmed for this payment, else the buyer's PayPal profile
   const sh = cap.purchase_units?.[0]?.shipping;
   const a = sh?.address;
@@ -561,7 +568,8 @@ function stats(uid) {
   const avg = got.length ? got.reduce((a, r) => a + r.stars, 0) / got.length : null;
   return { sold: sold.length, bought: bought.length, reviews: got.length, stars: avg && Math.round(avg * 10) / 10 };
 }
-const person = (uid) => { const u = userOf(uid); return u ? { id: u.id, name: u.name, avatar: u.avatar || null, ...stats(u.id) } : null; };
+const FORMER = 'Former member';
+const person = (uid) => { const u = userOf(uid); if (u?.deleted) return { id: u.id, name: FORMER, avatar: null, deleted: true, ...stats(u.id) }; return u ? { id: u.id, name: u.name, avatar: u.avatar || null, ...stats(u.id) } : null; };
 const card = (l) => ({ id: l.id, title: l.title, price: l.price, currency: currencyOf(l.country), photo: l.photo, category: l.category, status: l.status, at: l.at });
 const full = (l, viewer) => ({
   ...card(l), description: l.description, facts: l.facts || [], country: l.country, seller: person(l.sellerId),
@@ -583,8 +591,8 @@ app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY ? (/^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY) : 'loopback');
 
 const CSP = [
-  "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: blob:", "media-src 'self' data: blob:",
+  "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'", "img-src 'self' data: blob:", "media-src 'self' data: blob:",
   "connect-src 'self'", "worker-src 'self' blob:", "manifest-src 'self'", "object-src 'none'",
   "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
 ].join('; ');
@@ -647,12 +655,14 @@ app.use('/uploads', (q, s, next) => (/^\/[A-Za-z0-9_-]{1,80}\.(jpg|png|webp)$/.t
 app.use('/uploads', express.static(UPLOADS, { maxAge: '1h', index: false, dotfiles: 'deny', fallthrough: false,
   setHeaders: (s) => { s.set('X-Content-Type-Options', 'nosniff'); s.set('Content-Security-Policy', "default-src 'none'; sandbox"); } }));
 app.use('/photos', express.static(path.join(ROOT, 'seed', 'photos'), { maxAge: '1h', index: false, setHeaders: (s) => s.set('X-Content-Type-Options', 'nosniff') }));
+// the old one-paragraph pages now live in public/legal/
+app.get(['/privacy.html', '/terms.html'], (q, s) => s.redirect(301, '/legal' + q.path));
 app.use(express.static(path.join(ROOT, 'public'), { dotfiles: 'ignore' }));
 
 const photoUpload = (max) => multer({ storage: multer.memoryStorage(), limits: { fileSize: max, files: 1, fields: 8, fieldSize: 8 * 1024, parts: 10, headerPairs: 50 } }).single('photo');
 const auth = (q, s, next) => { const u = sessionUser(q); if (!u) return s.status(401).json({ error: 'Sign in first.' }); q.user = u; next(); };
 
-app.get('/api/meta', (_q, s) => s.json({ countries: COUNTRIES, categories: CATEGORIES, sandbox: SANDBOX, ai: !!GEMINI_KEY, paypal: !!(PP_ID && PP_SECRET) }));
+app.get('/api/meta', (_q, s) => s.json({ countries: COUNTRIES, categories: CATEGORIES, sandbox: SANDBOX, ai: !!GEMINI_KEY, paypal: !!(PP_ID && PP_SECRET), terms: { version: TERMS_VERSION }, reportReasons: REPORT_REASONS }));
 
 // Sign in with a name and a country (not used by the app's screens; kept for tools). It always makes a
 // NEW account: a name alone never proves who someone is, so it can never open somebody else's account.
@@ -660,7 +670,7 @@ app.post('/api/signin', limit('signin', 10, 2), (q, s) => {
   const name = clean(str(q.body.name, { min: 2, max: 30, name: 'name', msg: 'Your name, please.' }), 30);
   const country = typeof q.body.country === 'string' ? q.body.country : '';
   if (!COUNTRIES[country]) throw bad('Pick your country.');
-  const u = { id: id('u'), name, country, at: Date.now(), via: 'name' };
+  const u = { id: id('u'), name, country, at: Date.now(), via: 'name', terms: accepted() };
   users.push(u); persist();
   startSession(q, s, u);
   s.json(self(u));
@@ -691,6 +701,7 @@ app.post('/api/sell', auth, limit('sell-ip', 20, 5), photoUpload(10 * 1024 * 102
   if (!CATEGORIES.includes(category)) throw bad('Pick a category.');
   const price = Math.round(num(q.body.price, { min: 1, max: MAX_PRICE, msg: 'Set a price.' }) * 100) / 100;
   const description = str(q.body.description, { min: 30, max: 1200, name: 'description', msg: 'Write everything about it: condition, flaws, what comes with it.' }).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ');
+  if (q.body.accept !== 'true') throw bad('Accept the Terms and the seller rules first.');
   gate(q, s, 'sell', 5, 1); // each post costs an AI call
   const t0 = Date.now();
   const seen = await readPhoto(img.buf, img.mime, title, description);
@@ -698,7 +709,8 @@ app.post('/api/sell', auth, limit('sell-ip', 20, 5), photoUpload(10 * 1024 * 102
   // the file is written only once everything is fine, with a random name (never the browser's)
   const photoName = crypto.randomBytes(16).toString('hex') + img.ext;
   fs.writeFileSync(path.join(UPLOADS, photoName), img.buf, { flag: 'wx' });
-  const l = { id: id('l'), sellerId: u.id, country: u.country, photo: '/uploads/' + photoName, title, category, price, description, facts: seen.facts, status: 'open', at: Date.now() };
+  const l = { id: id('l'), sellerId: u.id, country: u.country, photo: '/uploads/' + photoName, title, category, price, description, facts: seen.facts, status: 'open', at: Date.now(), accepted: { ...accepted(), private: true } };
+  u.sellerTerms = accepted();
   listings.unshift(l);
   try { persist(); } catch (e) { listings.shift(); fs.rmSync(path.join(UPLOADS, photoName), { force: true }); throw e; }
   let sentTo = [];
@@ -843,7 +855,7 @@ app.get('/auth/paypal/return', limit('pp-auth', 20, 10), async (q, s) => {
     const address = { line1: lines[0] || '', line2: lines.slice(1).join(', ').slice(0, 100), city: clean(a.locality, 80), zip: clean(a.postal_code, 20), country };
     let u = users.find((x) => x.paypalId === ui.user_id);
     if (!u) { u = { id: id('u'), at: Date.now() }; users.push(u); }
-    Object.assign(u, { paypalId: ui.user_id, name: clean(ui.given_name, 30) || fullName.split(' ')[0], fullName, country, address, email: clean(ui.email, 120), via: 'paypal' });
+    Object.assign(u, { paypalId: ui.user_id, name: clean(ui.given_name, 30) || fullName.split(' ')[0], fullName, country, address, email: clean(ui.email, 120), via: 'paypal', terms: accepted() });
     persist();
     startSession(q, s, u);
     s.redirect('/#signed'); // no id in the link: the cookie is the sign-in
@@ -856,7 +868,7 @@ app.get('/auth/paypal/return', limit('pp-auth', 20, 10), async (q, s) => {
 const DEMO = [['Alex', 'Torstraße 45', '10119'], ['Sam', 'Oranienstraße 25', '10999'], ['Jo', 'Kastanienallee 12', '10435'], ['Robin', 'Bergmannstraße 8', '10961'], ['Kim', 'Schönhauser Allee 70', '10437']];
 app.post('/api/signin/demo', limit('demo', 10, 2), (q, s) => {
   const [name, line1, zip] = DEMO[crypto.randomInt(DEMO.length)];
-  const u = { id: id('u'), name, fullName: name + ' Demo', country: 'DE', address: { line1, line2: '', city: 'Berlin', zip, country: 'DE' }, at: Date.now(), via: 'demo' };
+  const u = { id: id('u'), name, fullName: name + ' Demo', country: 'DE', address: { line1, line2: '', city: 'Berlin', zip, country: 'DE' }, at: Date.now(), via: 'demo', terms: accepted() };
   users.push(u); persist();
   startSession(q, s, u);
   s.json(self(u));
@@ -944,8 +956,8 @@ app.get('/api/pulse', (q, s) => {
 // A person's page: their numbers, what they sell, and every review from a real deal. Never an address.
 app.get('/api/users/:id', (q, s) => {
   const u = typeof q.params.id === 'string' && ID_RE.test(q.params.id) ? userOf(q.params.id) : null;
-  if (!u) return s.status(404).json({ error: 'not found' });
-  const rv = (r) => ({ stars: r.stars, text: r.text || '', at: r.at, reply: r.reply ? { text: r.reply.text, at: r.reply.at } : null });
+  if (!u || u.deleted) return s.status(404).json({ error: 'not found' });
+  const rv =(r) => ({ stars: r.stars, text: r.text || '', at: r.at, reply: r.reply ? { text: r.reply.text, at: r.reply.at } : null });
   const reviews = [];
   for (const l of listings) {
     if (l.status !== 'sold') continue;
@@ -986,6 +998,83 @@ app.delete('/api/me/avatar', auth, (q, s) => {
   delete u.avatar; persist();
   if (old?.startsWith('/uploads/avatar_')) fs.rmSync(path.join(UPLOADS, path.basename(old)), { force: true });
   s.json(self(u));
+});
+
+// ---------- reports (DSA art. 16): an item or a person, a reason from the list, optional words ----------
+const repIns = db.prepare('INSERT INTO reports (id, at, by_user, kind, target, reason, text, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+const repMine = db.prepare('SELECT id, at, kind, target, reason, text, status FROM reports WHERE by_user = ? ORDER BY at');
+const report = (q, s) => {
+  const u = q.user;
+  const kind = q.body.kind, target = q.body.id, reason = q.body.reason;
+  if (kind !== 'listing' && kind !== 'user') throw bad('Pick what you report.');
+  if (typeof reason !== 'string' || !Object.hasOwn(REPORT_REASONS, reason)) throw bad('Pick a reason.');
+  const text = str(q.body.text, { max: 500, name: 'text' }).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ');
+  const ok = typeof target === 'string' && ID_RE.test(target) && (kind === 'listing'
+    ? (() => { const l = findListing(target); return l && l.status !== 'deleted' && l.sellerId !== u.id; })()
+    : (() => { const t = userOf(target); return t && !t.deleted && t.id !== u.id; })());
+  if (!ok) return s.status(404).json({ error: 'Nothing to report there.' });
+  gate(q, s, 'report', 5, 2); // counted once the report is valid
+  const rid = id('r');
+  repIns.run(rid, Date.now(), u.id, kind, target, reason, text, 'open');
+  console.log(`report ${rid}: ${kind} ${target} (${reason})`); // the operator checks these
+  s.json({ ok: true, id: rid });
+};
+app.post(['/api/report', '/api/reports'], auth, limit('report-ip', 30, 10), report);
+
+// ---------- my data (GDPR art. 15/20): everything about me, and only me, as a file ----------
+app.get('/api/me/export', auth, (q, s) => {
+  const u = q.user;
+  const shipOut = (sh) => { if (!sh) return null; const { labelKey, ...rest } = sh; return rest; };
+  const amount = (l) => (l.capture?.amount ? { value: l.capture.amount.value, currency: l.capture.amount.currency_code } : { value: l.price, currency: currencyOf(l.country) });
+  const item = (l) => ({ id: l.id, title: l.title, category: l.category, price: l.price, currency: currencyOf(l.country), description: l.description, photo: l.photo, status: l.status, postedAt: l.at, soldAt: l.soldAt || null, acceptedTerms: l.accepted || null });
+  const out = {
+    exportedAt: new Date().toISOString(), termsVersion: TERMS_VERSION,
+    user: { id: u.id, name: u.name, fullName: u.fullName || u.name, country: u.country, address: u.address || null, email: u.email || null, avatar: u.avatar || null, signedUpWith: u.via || 'name', since: u.at, acceptedTerms: u.terms || null, acceptedSellerRules: u.sellerTerms || null },
+    selling: listings.filter((l) => l.sellerId === u.id).map((l) => ({ ...item(l), ...(l.status === 'sold' ? { buyer: person(l.buyerId)?.name, paid: amount(l), shipTo: shipOut(l.ship), tracking: l.tracking || null } : {}) })),
+    bought: listings.filter((l) => l.buyerId === u.id).map((l) => ({ id: l.id, title: l.title, seller: person(l.sellerId)?.name, paid: amount(l), boughtAt: l.soldAt, acceptedTerms: l.buyerAccepted || null, shipTo: shipOut(l.ship), tracking: l.tracking || null })),
+    wants: wants.filter((w) => w.userId === u.id).map((w) => ({ id: w.id, what: w.what, category: w.category, minPrice: w.minPrice, maxPrice: w.maxPrice, status: w.status, at: w.at })),
+    reviewsWritten: [], reviewsReceived: [],
+    reports: repMine.all(u.id),
+  };
+  for (const l of listings) {
+    if (l.status !== 'sold') continue;
+    const r = (x) => ({ item: l.title, stars: x.stars, text: x.text || '', at: x.at, reply: x.reply || null });
+    if (l.buyerId === u.id && l.reviews?.buyer) out.reviewsWritten.push(r(l.reviews.buyer));
+    if (l.sellerId === u.id && l.reviews?.seller) out.reviewsWritten.push(r(l.reviews.seller));
+    if (l.sellerId === u.id && l.reviews?.buyer) out.reviewsReceived.push(r(l.reviews.buyer));
+    if (l.buyerId === u.id && l.reviews?.seller) out.reviewsReceived.push(r(l.reviews.seller));
+  }
+  s.set('Content-Disposition', 'attachment; filename="homing-data.json"');
+  s.type('application/json').send(JSON.stringify(out, null, 2));
+});
+
+// ---------- delete my account (GDPR art. 17) ----------
+// Finished deals stay (needed for 3 years), with the name shown as "Former member".
+const sessKill = db.prepare('DELETE FROM sessions WHERE user_id = ?');
+app.delete('/api/me', auth, limit('delete-me', 5, 2, byUser), (q, s) => {
+  const u = q.user;
+  const recent = Date.now() - 30 * 86400e3;
+  const open = listings.some((l) => l.status === 'sold' && (l.sellerId === u.id || l.buyerId === u.id) && l.soldAt > recent && !trackOf(l)?.delivered);
+  if (open) throw bad('Finish your open deals first. When the parcel is delivered you can delete your account.');
+  if (listings.some((l) => l.sellerId === u.id && paying.has(l.id))) return s.status(409).json({ error: 'Someone is paying for one of your items right now. Try again in a minute.' });
+  const files = [];
+  if (u.avatar?.startsWith('/uploads/')) files.push(u.avatar);
+  // open and deleted listings go, with their photos; sold ones stay
+  listings = listings.filter((l) => { if (l.sellerId !== u.id || l.status === 'sold') return true; if (l.photo?.startsWith('/uploads/')) files.push(l.photo); return false; });
+  wants = wants.filter((w) => w.userId !== u.id);
+  // reviews this person wrote, and their answers to reviews about them
+  for (const l of listings) {
+    if (l.status !== 'sold' || !l.reviews) continue;
+    if (l.buyerId === u.id) { delete l.reviews.buyer; if (l.reviews.seller) delete l.reviews.seller.reply; }
+    if (l.sellerId === u.id) { delete l.reviews.seller; if (l.reviews.buyer) delete l.reviews.buyer.reply; }
+  }
+  const i = users.indexOf(u);
+  users[i] = { id: u.id, deleted: true, at: Date.now() };
+  persist();
+  sessKill.run(u.id);
+  endSession(q, s);
+  for (const f of files) fs.rmSync(path.join(UPLOADS, path.basename(f)), { force: true });
+  s.json({ ok: true });
 });
 
 // The shipping label the QR opens: both addresses, the order code and the item on one

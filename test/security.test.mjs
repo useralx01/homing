@@ -41,6 +41,8 @@ const L = [
   { id: 'l_fixpp', sellerId: 'u_fixsell', country: 'DE', photo: '/photos/armchair.jpg', title: 'PayPal chair', category: 'Furniture', price: 9, description: 'A chair bought through the PayPal button flow, never approved.', facts: [], status: 'open', at: now - 2 },
   { id: 'l_fixdone', sellerId: 'u_other1', buyerId: 'u_other2', country: 'DE', photo: '/photos/armchair.jpg', title: 'Old deal', category: 'Furniture', price: 20, description: 'A finished deal between two other people, nobody else may review.', facts: [], status: 'sold', at: now - 9, soldAt: now - 5,
     capture: { id: 'CAPSECRET', orderId: 'ORDSECRET', status: 'COMPLETED' }, ship: { name: 'Otto Other', ...addr('Privatweg 3', '10119'), code: 'HM-AAAAAA', labelKey: 'abcdefabcdefabcdefabcdef' }, reviews: {} },
+  { id: 'l_fixwait', sellerId: 'u_other2', buyerId: 'u_other1', country: 'DE', photo: '/photos/armchair.jpg', title: 'Fresh deal', category: 'Furniture', price: 15, description: 'Sold a moment ago and not sent yet, so its seller cannot delete the account.', facts: [], status: 'sold', at: now - 9, soldAt: now - 5,
+    capture: { id: 'CAPSECRET', orderId: 'ORDSECRET', status: 'COMPLETED' }, ship: { name: 'Olli Other', ...addr('Geheimstraße 9', '10117'), code: 'HM-BBBBBB' }, reviews: {} },
 ];
 function writeFixtures() {
   const db = new DatabaseSync(DB);
@@ -128,7 +130,7 @@ test('security headers on the app', async () => {
   assert.equal(r.status, 200);
   const csp = r.headers.get('content-security-policy');
   assert.match(csp, /default-src 'self'/); assert.match(csp, /script-src 'self'(;|$)/); assert.match(csp, /frame-ancestors 'none'/);
-  assert.match(csp, /fonts\.googleapis\.com/); assert.match(csp, /fonts\.gstatic\.com/);
+  assert.doesNotMatch(csp, /fonts\.googleapis\.com|fonts\.gstatic\.com/, 'fonts are self-hosted'); assert.match(csp, /font-src 'self'(;|$)/);
   assert.equal(r.headers.get('x-frame-options'), 'DENY');
   assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
   assert.ok(r.headers.get('referrer-policy'));
@@ -399,7 +401,7 @@ test('browse and my stuff', async () => {
 
 test('sell (needs Gemini)', async (t) => {
   const p = await demo('C');
-  const r = await p.post('/api/sell', { form: photoForm(LAMP, 'lamp.jpg', 'image/jpeg', { title: 'Desk lamp, silver', category: 'Home & kitchen', price: '18', description: 'Silver desk lamp, works, bulb included, a few light scratches on the base.' }) });
+  const r = await p.post('/api/sell', { form: photoForm(LAMP, 'lamp.jpg', 'image/jpeg', { title: 'Desk lamp, silver', category: 'Home & kitchen', price: '18', description: 'Silver desk lamp, works, bulb included, a few light scratches on the base.', accept: 'true' }) });
   if (r.status === 503) { skipped.push('sell'); return t.skip('Gemini not reachable: ' + r.json?.error); }
   assert.equal(r.status, 200, r.text);
   assert.match(r.json.listing.photo, /^\/uploads\/[0-9a-f]{32}\.jpg$/);
@@ -413,6 +415,97 @@ test('want (needs Gemini)', async (t) => {
   if (r.status === 503) { skipped.push('want'); return t.skip('Gemini not reachable: ' + r.json?.error); }
   assert.equal(r.status, 200, r.text);
   assert.equal(r.json.want.what, 'a chair');
+});
+
+// ===================== legal: terms, reports, my data, delete account =====================
+test('fonts are self-hosted and old legal links point to the new pages', async () => {
+  for (const f of ['Inter-var.woff2', 'InterTight-var.woff2']) { const r = await anon.get('/fonts/' + f); assert.equal(r.status, 200, f); }
+  const html = (await anon.get('/')).text;
+  assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic/);
+  for (const p of ['privacy', 'terms']) { const r = await anon.get('/' + p + '.html'); assert.equal(r.status, 301); assert.equal(r.headers.get('location'), '/legal/' + p + '.html'); }
+  for (const p of ['terms', 'privacy', 'impressum', 'index', 'seller-rules', 'refunds', 'report', 'buyer-protection']) {
+    const r = await anon.get('/legal/' + p + '.html'); assert.equal(r.status, 200);
+    assert.doesNotMatch(r.text, /<script(?![^>]*\bsrc=)[^>]*>|\son[a-z]+\s*=|fonts\.googleapis/i, p + ' has no inline script');
+  }
+  const m = await anon.get('/api/meta'); assert.equal(m.json.terms.version, '2026-11-11');
+});
+
+test('sell without accepting the terms is refused (before any AI call)', async () => {
+  const p = await demo('D');
+  const before = uploadsNow();
+  const fields = { title: 'Desk lamp, silver', category: 'Home & kitchen', price: '18', description: 'Silver desk lamp, works, bulb included, a few light scratches on the base.' };
+  for (const accept of [undefined, 'false', 'yes', '']) {
+    const f = { ...fields }; if (accept !== undefined) f.accept = accept;
+    const r = await p.post('/api/sell', { form: photoForm(LAMP, 'lamp.jpg', 'image/jpeg', f) });
+    assert.equal(r.status, 400, String(accept) + ' -> ' + r.text); assert.match(r.json.error, /Terms/);
+  }
+  assert.deepEqual([...uploadsNow()].filter((f) => !before.has(f)), [], 'no files written');
+});
+
+test('report: signed-in only, checked, saved, rate-limited', async () => {
+  const p = await demo('D');
+  assert.equal((await anon.post('/api/report', { json: { kind: 'listing', id: 'l_fixpp', reason: 'fraud' } })).status, 401);
+  for (const b of [{ kind: 'post', id: 'l_fixpp', reason: 'fraud' }, { kind: 'listing', id: 'l_fixpp', reason: 'meh' }, { kind: 'listing', id: 'l_fixpp', reason: 'fraud', text: 'x'.repeat(600) }, { kind: 'listing', id: 'l_fixpp', reason: ['fraud'] }, { kind: 'listing', id: 'l_fixpp', reason: 'fraud', text: { a: 1 } }, { kind: 'listing', id: 'l_fixpp', reason: 'toString' }])
+    assert.equal((await p.post('/api/report', { json: b })).status, 400, JSON.stringify(b));
+  assert.equal((await p.post('/api/report', { json: { kind: 'listing', id: 'l_nothere', reason: 'fraud' } })).status, 404);
+  assert.equal((await p.post('/api/report', { json: { kind: 'user', id: 'u_nothere', reason: 'other' } })).status, 404);
+  const ok = await p.post('/api/report', { json: { kind: 'listing', id: 'l_fixpp', reason: 'photo', text: '<b>not</b> the same chair' } });
+  assert.equal(ok.status, 200, ok.text);
+  const u = await p.post('/api/report', { json: { kind: 'user', id: 'u_fixsell', reason: 'fraud' } });
+  assert.equal(u.status, 200, u.text);
+  const db = new DatabaseSync(DB, { readOnly: true });
+  const row = db.prepare('SELECT * FROM reports WHERE id = ?').get(ok.json.id); db.close();
+  assert.equal(row.kind, 'listing'); assert.equal(row.target, 'l_fixpp'); assert.equal(row.reason, 'photo'); assert.equal(row.status, 'open'); assert.equal(row.text, '<b>not</b> the same chair');
+  let hit = false;
+  for (let i = 0; i < 8; i++) if ((await p.post('/api/report', { json: { kind: 'listing', id: 'l_fixpp', reason: 'other' } })).status === 429) { hit = true; break; }
+  assert.ok(hit, 'reports are rate-limited');
+});
+
+test('export: a JSON file with only my own data', async () => {
+  assert.equal((await anon.get('/api/me/export')).status, 401);
+  const r = await seller.get('/api/me/export');
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /application\/json/);
+  assert.match(r.headers.get('content-disposition'), /attachment; filename="homing-data\.json"/);
+  const d = r.json;
+  assert.equal(d.user.id, 'u_fixsell'); assert.equal(d.user.email, 'fixa@example.com');
+  assert.ok(d.selling.some((l) => l.id === 'l_fixpp'));
+  assert.ok(!r.text.includes('PPID-SECRET'), 'no PayPal id'); assert.ok(!r.text.includes('labelKey'), 'no label key');
+  for (const w of ['Olli', 'Otto Other', 'Geheimstraße', 'olli@example.com', 'u_other1']) assert.ok(!r.text.includes(w), 'other people: ' + w);
+  const p = await demo('D');
+  const mine = (await p.get('/api/me/export')).json;
+  assert.ok(mine.reports.length >= 2, 'my reports are in it');
+  assert.ok(!JSON.stringify(mine).includes('fixa@example.com'));
+});
+
+test('delete my account: profile, photo, sessions gone; signed out', async () => {
+  const p = new Person();
+  const s = await p.post('/api/signin/demo', { json: {} }); assert.equal(s.status, 200, s.text);
+  const uid = s.json.id;
+  const second = new Person(p.cookie); // a second device with the same account
+  const av = await p.post('/api/me/avatar', { form: photoForm(LAMP, 'me.jpg') }); assert.equal(av.status, 200, av.text);
+  const file = path.join(TMP, 'uploads', path.basename(av.json.avatar));
+  assert.ok(fs.existsSync(file));
+  assert.equal((await anon.req('DELETE', '/api/me')).status, 401);
+  assert.equal((await p.req('DELETE', '/api/me', { headers: { origin: 'https://evil.example' } })).status, 403, 'cross-site refused');
+  const d = await p.req('DELETE', '/api/me');
+  assert.equal(d.status, 200, d.text);
+  assert.equal(p.cookie, '', 'cookie cleared');
+  assert.ok(!fs.existsSync(file), 'avatar file removed');
+  assert.equal((await second.get('/api/whoami')).status, 401, 'every session ended');
+  assert.equal((await anon.get('/api/users/' + uid)).status, 404);
+  const db = new DatabaseSync(DB, { readOnly: true });
+  const row = JSON.parse(db.prepare("SELECT body FROM rows WHERE kind = 'users' AND id = ?").get(uid).body);
+  const n = db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?').get(uid).n; db.close();
+  assert.deepEqual(Object.keys(row).sort(), ['at', 'deleted', 'id']); assert.equal(n, 0);
+});
+
+test('delete my account is refused while a recent deal is not delivered', async () => {
+  // u_other2 sold "Fresh deal" just before the start and nobody opened its label: not delivered yet
+  const t = crypto.randomBytes(32).toString('base64url');
+  const db = new DatabaseSync(DB); db.prepare('INSERT INTO sessions VALUES (?, ?, ?, ?)').run(sha(t), 'u_other2', Date.now(), Date.now() + 86400e3); db.close();
+  const r = await new Person('homing_sid=' + t).req('DELETE', '/api/me');
+  assert.equal(r.status, 400, r.text); assert.match(r.json.error, /open deals/);
 });
 
 test('backup file is written', () => {
