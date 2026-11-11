@@ -54,8 +54,8 @@ const money = (v, c = cur()) => new Intl.NumberFormat('en-IE', { style: 'currenc
 const sym = () => money(0).replace(/[\d.,\s]/g, '');
 // every person gets their own shade of blue
 const hue = (name = '') => 205 + ([...name].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 997, 7) % 30);
-const avatar = (el, name) => { el.textContent = (name || '?').trim()[0].toUpperCase(); el.style.setProperty('--h', hue(name)); };
-const av = (name, cls = '') => `<span class="av ${cls}" style="--h:${hue(name)}">${esc((name || '?').trim()[0].toUpperCase())}</span>`;
+const avatar = (el, name, url) => { el.style.setProperty('--h', hue(name)); el.classList.toggle('pic', !!url); if (url) el.innerHTML = `<img src="${esc(url)}" alt="">`; else el.textContent = (name || '?').trim()[0].toUpperCase(); };
+const av = (name, cls = '', url = null) => url ? `<span class="av pic ${cls}"><img src="${esc(url)}" alt=""></span>` : `<span class="av ${cls}" style="--h:${hue(name)}">${esc((name || '?').trim()[0].toUpperCase())}</span>`;
 const CHEV = '<svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>';
 const ago = (t) => { const d = Math.round((Date.now() - t) / 86400000); return d < 1 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : d < 60 ? Math.round(d / 7) + ' weeks ago' : Math.round(d / 30) + ' months ago'; };
 window.addEventListener('scroll', () => $('#top').classList.toggle('scrolled', scrollY > 4), { passive: true });
@@ -145,8 +145,8 @@ $('#demoBtn').onclick = async () => {
 $('#signout').onclick = () => { localStorage.removeItem('homing.user'); me = null; location.hash = ''; show('signin'); };
 
 function setupForUser() {
-  avatar($('#meAv'), me.name);
-  avatar($('#wAv'), me.name);
+  avatar($('#meAv'), me.name, me.avatar);
+  avatar($('#wAv'), me.name, me.avatar);
   $('#wName').textContent = me.name;
   const cn = meta.countries[me.country].name;
   $('#wCountry').textContent = cn + ' only';
@@ -466,7 +466,7 @@ async function openItem(lid) {
   const s = l.seller;
   $('#iSeller').href = '#user/' + s.id;
   $('#iSeller').innerHTML = `<span class="av"></span><span class="who"><b>${esc(s.name)}</b><small>${s.stars ? STAR + ' ' + s.stars + ' · ' : ''}${s.sold} sold${s.reviews ? ' · ' + s.reviews + ' reviews' : ''}</small></span>${CHEV}`;
-  avatar($('.av', $('#iSeller')), s.name);
+  avatar($('.av', $('#iSeller')), s.name, s.avatar);
   $('#iDesc').textContent = l.description;
   $('#iSeen').innerHTML = l.facts.length ? '<em>AI saw in the photo:</em>' + l.facts.map((f) => `<span>${esc(f)}</span>`).join('') : '';
   $('#iCountry').textContent = `Only for buyers in ${meta.countries[l.country].name}`;
@@ -519,12 +519,12 @@ function rateForm(box, l, side, other) {
   const done = l.reviews?.[side];
   if (done) { box.innerHTML = `<b>You gave ${esc(other)} ${done.stars} ${done.stars === 1 ? 'star' : 'stars'}.</b>${done.text ? `<p class="sub">“${esc(done.text)}”</p>` : ''}`; return; }
   box.innerHTML = `<b>How was ${esc(other)}?</b><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" aria-label="${n} stars">${STAR.replace('class="star"', '')}</button>`).join('')}</div>
-    <input maxlength="200" placeholder="A few words (optional)"><button class="primary" disabled>Send review</button><p class="fine">Only the buyer and the seller of a deal can review it. No fake reviews.</p>`;
+    <textarea maxlength="600" rows="3" placeholder="Say how it went. Was it like the photo? Fast? Friendly?"></textarea><button class="primary" disabled>Send review</button><p class="fine">Only the buyer and the seller of a deal can review it. No fake reviews.</p>`;
   let stars = 0;
   $$('.stars button', box).forEach((b) => (b.onclick = () => { stars = +b.dataset.n; $$('.stars button', box).forEach((x) => x.classList.toggle('on', +x.dataset.n <= stars)); $('.primary', box).disabled = false; }));
   $('.primary', box).onclick = async () => {
     try {
-      const nl = await api(`/api/listings/${l.id}/review`, { method: 'POST', json: { stars, text: $('input', box).value } });
+      const nl = await api(`/api/listings/${l.id}/review`, { method: 'POST', json: { stars, text: $('textarea', box).value } });
       rateForm(box, nl, side, other);
       toast('Thanks. It counts on the leaderboard.');
       refreshBadge();
@@ -537,7 +537,8 @@ const SEARCH = '<span class="ph"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="
 async function openMe() {
   const d = await api('/api/me').catch(() => null);
   if (!d) return;
-  avatar($('#mAv'), d.user.name);
+  avatar($('#mAv'), d.user.name, d.user.avatar);
+  if (d.user.avatar !== me.avatar) { me.avatar = d.user.avatar; localStorage.setItem('homing.user', JSON.stringify(me)); setupForUser(); }
   $('#mName').textContent = d.user.name;
   $('#mStats').innerHTML = `${esc(meta.countries[d.user.country].name)} · ${d.user.sold} sold · ${d.user.bought} bought${d.user.stars ? ` · ${STAR} ${d.user.stars}` : ''}`;
   $('#mSell').innerHTML = d.mine.length ? d.mine.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)}${l.status === 'sold' ? ' · sold to ' + esc(l.buyer.name) : ''}</small></a>
@@ -562,11 +563,11 @@ async function openBoard() {
   let rows = await api(`/api/leaderboard?country=${me.country}&by=${boardBy}`).catch(() => []);
   const key = boardBy === 'sellers' ? 'sold' : 'bought';
   const top = rows.length >= 3 ? rows.slice(0, 3) : [];
-  $('#podium').innerHTML = top.length ? [1, 0, 2].map((i) => { const u = top[i]; return `<a class="pod p${i + 1}" href="#user/${u.id}">${av(u.name, i ? 'lg' : 'xl')}<span class="medal">${i + 1}</span><b>${esc(u.name)}</b><small>${u[key]} ${key}</small><span class="ps">${u.stars ? STAR + u.stars.toFixed(1) : ''}</span></a>`; }).join('') : '';
-  $('#rBody').innerHTML = rows.map((u, i) => `<tr class="${u.id === me.id ? 'you' : ''}"><td class="n">${i + 1}</td><td><a href="#user/${u.id}">${av(u.name)}<b>${esc(u.name)}</b></a></td><td>${u.sold}</td><td>${u.bought}</td><td class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</td><td><a href="#user/${u.id}" aria-label="Open ${esc(u.name)}">${CHEV}</a></td></tr>`).join('')
+  $('#podium').innerHTML = top.length ? [1, 0, 2].map((i) => { const u = top[i]; return `<a class="pod p${i + 1}" href="#user/${u.id}">${av(u.name, i ? 'lg' : 'xl', u.avatar)}<span class="medal">${i + 1}</span><b>${esc(u.name)}</b><small>${u[key]} ${key}</small><span class="ps">${u.stars ? STAR + u.stars.toFixed(1) : ''}</span></a>`; }).join('') : '';
+  $('#rBody').innerHTML = rows.map((u, i) => `<tr class="${u.id === me.id ? 'you' : ''}"><td class="n">${i + 1}</td><td><a href="#user/${u.id}">${av(u.name, '', u.avatar)}<b>${esc(u.name)}</b></a></td><td>${u.sold}</td><td>${u.bought}</td><td class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</td><td><a href="#user/${u.id}" aria-label="Open ${esc(u.name)}">${CHEV}</a></td></tr>`).join('')
     || `<tr><td colspan="6">${dot('hello', 'No deals yet', 'The first deal in your country puts you on top.', 'sm')}</td></tr>`;
   rows = rows.slice(top.length);
-  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${u.id}"><span class="n">${i + 1 + top.length}</span>${av(u.name)}
+  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${u.id}"><span class="n">${i + 1 + top.length}</span>${av(u.name, '', u.avatar)}
     <span class="t"><b>${esc(u.name)}</b><small>${u.sold} sold · ${u.bought} bought</small></span>
     <span class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</span>${CHEV}</a></li>`).join('')
     : `<li style="display:block;border:0">${dot('hello', 'No deals yet', 'The first deal in your country puts you on top.')}</li>`;
@@ -600,7 +601,7 @@ async function openBoard() {
 async function openUser(uid) {
   let u;
   try { u = await api('/api/users/' + uid); } catch { location.hash = 'board'; return; }
-  avatar($('#uAv'), u.name);
+  avatar($('#uAv'), u.name, u.avatar);
   $('#uName').textContent = u.name + (u.id === me.id ? ' (you)' : '');
   $('#uMeta').textContent = `${meta.countries[u.country].name} · on Homing since ${new Date(u.since).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
   $('#uSold').textContent = u.sold; $('#uBought').textContent = u.bought;
@@ -609,9 +610,18 @@ async function openUser(uid) {
   $('#uSale').hidden = !u.forSale.length;
   fillGrid($('#uGrid'), u.forSale);
   const stars = (n) => [1, 2, 3, 4, 5].map((k) => STAR.replace('class="star"', k <= n ? '' : 'class="off"')).join('');
-  $('#uRevs').innerHTML = u.feed.length ? u.feed.map((r) => `<li><div class="r-top">${av(r.from)}<b>${esc(r.from)}</b><span class="r-stars">${stars(r.stars)}</span><time>${ago(r.at)}</time></div>
-    ${r.text ? `<p>${esc(r.text)}</p>` : ''}<span class="deal">${r.role === 'bought' ? esc(r.from) + ' bought' : esc(u.name) + ' bought'} ${esc(r.item)} · ${money(r.price, r.currency)} via PayPal</span></li>`).join('')
+  $('#uRevs').innerHTML = u.feed.length ? u.feed.map((r) => `<li><div class="r-top">${av(r.from, '', r.fromAvatar)}<b>${esc(r.from)}</b><span class="r-stars">${stars(r.stars)}</span><time>${ago(r.at)}</time></div>
+    ${r.text ? `<p>${esc(r.text)}</p>` : ''}<span class="deal">${r.role === 'bought' ? esc(r.from) + ' bought' : esc(u.name) + ' bought'} ${esc(r.item)} · ${money(r.price, r.currency)} via PayPal</span>${r.reply ? `<div class="reply"><b>${esc(u.name)} answered</b><p>${esc(r.reply.text)}</p></div>` : u.id === me.id ? `<button class="answer" type="button" data-l="${esc(r.listingId)}">Answer</button>` : ''}</li>`).join('')
     : `<li style="border:0">${dot('sleep', 'No reviews yet', 'Reviews only come from real, paid deals.', 'sm')}</li>`;
+  $$('.answer', $('#uRevs')).forEach((b) => (b.onclick = () => {
+    const f = document.createElement('div'); f.className = 'reply-form';
+    f.innerHTML = '<textarea maxlength="600" rows="2" placeholder="Your answer"></textarea><button class="primary" type="button">Send answer</button>';
+    b.replaceWith(f); $('textarea', f).focus();
+    $('.primary', f).onclick = async () => {
+      try { await api(`/api/listings/${b.dataset.l}/review/reply`, { method: 'POST', json: { text: $('textarea', f).value } }); toast('Answer posted.'); openUser(uid); }
+      catch (err) { toast(err.message); }
+    };
+  }));
   show('user');
 }
 
@@ -674,7 +684,7 @@ async function openShip(lid) {
   const sh = d.ship || {};
   $('#shKick').textContent = `Paid ${ago(d.paidAt)} · ${money(d.item.price, d.item.currency)} is in your PayPal`;
   $('#shImg').src = d.item.photo; $('#shTitle').textContent = d.item.title; $('#shPaid').textContent = `to ${d.buyer.name}`;
-  $('#shQr').innerHTML = d.qr; $('#shCode').textContent = sh.code || '';
+  $('#shQr').innerHTML = d.qr; $('#shCode').textContent = sh.code || ''; $('#shLabel').href = d.labelUrl;
   const lines = [sh.name, sh.line1, sh.line2, [sh.zip, sh.city].filter(Boolean).join(' '), meta.countries[sh.country]?.name].filter((x) => x && String(x).trim());
   $('#shTo').innerHTML = `<address>${lines.map(esc).join('<br>')}</address><button class="copy" type="button">Copy</button><small>From the buyer's PayPal</small>`;
   $('.copy', $('#shTo')).onclick = async (e) => { try { await navigator.clipboard.writeText(lines.join('\n')); e.target.textContent = 'Copied'; } catch { e.target.textContent = 'Select and copy'; } };
@@ -729,3 +739,15 @@ document.addEventListener('keydown', (e) => {
   if (nx) { e.preventDefault(); nx.focus(); }
 });
 document.addEventListener('focusin', (e) => { if (e.target.matches('input,textarea') && matchMedia('(pointer:coarse)').matches) setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 280); });
+
+// ---------- profile picture ----------
+$('#mAvIn')?.addEventListener('change', async (e) => {
+  const f = e.target.files?.[0]; e.target.value = '';
+  if (!f) return;
+  const fd = new FormData(); fd.append('photo', f);
+  try {
+    const u = await api('/api/me/avatar', { method: 'POST', body: fd });
+    me.avatar = u.avatar; localStorage.setItem('homing.user', JSON.stringify(me));
+    setupForUser(); avatar($('#mAv'), me.name, me.avatar); haptic?.('success'); toast('New photo saved.');
+  } catch (err) { toast(err.message); }
+});

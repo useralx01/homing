@@ -10,6 +10,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import QRCode from 'qrcode';
+import { DatabaseSync } from 'node:sqlite';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DATA = path.join(ROOT, 'data');
@@ -37,14 +38,35 @@ const COUNTRIES = {
 };
 const CATEGORIES = ['Furniture', 'Home & kitchen', 'Electronics', 'Music', 'Bikes & sport', 'Fashion', 'Plants', 'Other'];
 
-// ---------- tiny JSON store ----------
+// ---------- storage: one SQLite database (data/homing.db) ----------
+// Every person, item, want, review and shipment is a row. Rows are also kept in memory for speed;
+// each change is written in one transaction, only the rows that changed. Photos live in data/uploads.
 const file = (n) => path.join(DATA, n);
 const seed = (n) => JSON.parse(fs.readFileSync(path.join(ROOT, 'seed', n), 'utf8'));
-const load = (n) => { try { const v = JSON.parse(fs.readFileSync(file(n), 'utf8')); if (Array.isArray(v) && (n !== 'listings.json' || v[0]?.sellerId)) return v; } catch {} return seed(n); };
-let users = load('users.json');
-let listings = load('listings.json');
-let wants = load('wants.json');
-const persist = () => { for (const [n, v] of [['users.json', users], ['listings.json', listings], ['wants.json', wants]]) fs.writeFileSync(file(n), JSON.stringify(v, null, 2)); };
+const legacy = (n) => { try { const v = JSON.parse(fs.readFileSync(file(n), 'utf8')); if (Array.isArray(v) && (n !== 'listings.json' || v[0]?.sellerId)) return v; } catch {} return seed(n); };
+const db = new DatabaseSync(process.env.DB_FILE || path.join(DATA, 'homing.db'));
+db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; CREATE TABLE IF NOT EXISTS rows (kind TEXT NOT NULL, id TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY (kind, id));');
+const KINDS = { users: 'users.json', listings: 'listings.json', wants: 'wants.json' };
+const readKind = (k) => db.prepare('SELECT body FROM rows WHERE kind = ? ORDER BY rowid').all(k).map((r) => JSON.parse(r.body));
+const putRow = db.prepare('INSERT INTO rows (kind, id, body) VALUES (?, ?, ?) ON CONFLICT (kind, id) DO UPDATE SET body = excluded.body');
+const delRow = db.prepare('DELETE FROM rows WHERE kind = ? AND id = ?');
+const written = { users: new Map(), listings: new Map(), wants: new Map() };
+for (const k of Object.keys(KINDS)) for (const r of readKind(k)) written[k].set(r.id, JSON.stringify(r));
+const loadKind = (k) => { const v = readKind(k); return v.length ? v : legacy(KINDS[k]); }; // first run takes the old JSON files over
+let users = loadKind('users');
+let listings = loadKind('listings');
+let wants = loadKind('wants');
+const persist = () => {
+  db.exec('BEGIN');
+  try {
+    for (const [k, list] of [['users', users], ['listings', listings], ['wants', wants]]) {
+      const seen = new Set();
+      for (const r of list) { const b = JSON.stringify(r); seen.add(r.id); if (written[k].get(r.id) !== b) { putRow.run(k, r.id, b); written[k].set(r.id, b); } }
+      for (const rid of [...written[k].keys()]) if (!seen.has(rid)) { delRow.run(k, rid); written[k].delete(rid); }
+    }
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+};
 persist();
 const id = (p) => p + '_' + crypto.randomBytes(5).toString('hex');
 const userOf = (uid) => users.find((u) => u.id === uid);
@@ -205,6 +227,7 @@ function markSold(l, buyer, cap, via) {
     name: sh?.name?.full_name || buyer.fullName || buyer.name,
     ...(a ? { line1: a.address_line_1 || '', line2: a.address_line_2 || '', city: a.admin_area_2 || '', zip: a.postal_code || '', country: a.country_code || l.country } : buyer.address || {}),
     code: 'HM-' + crypto.randomBytes(3).toString('hex').toUpperCase(),
+    labelKey: crypto.randomBytes(12).toString('hex'),
   };
   shipNotes(l).then((n) => { l.ship.notes = n; persist(); }).catch(() => {});
   // anyone else who was matched to it simply sees it's gone; the buyer's want is done
@@ -260,7 +283,7 @@ function stats(uid) {
   const avg = got.length ? got.reduce((a, r) => a + r.stars, 0) / got.length : null;
   return { sold: sold.length, bought: bought.length, reviews: got.length, stars: avg && Math.round(avg * 10) / 10 };
 }
-const person = (uid) => { const u = userOf(uid); return u ? { id: u.id, name: u.name, ...stats(u.id) } : null; };
+const person = (uid) => { const u = userOf(uid); return u ? { id: u.id, name: u.name, avatar: u.avatar || null, ...stats(u.id) } : null; };
 const card = (l) => ({ id: l.id, title: l.title, price: l.price, currency: currencyOf(l.country), photo: l.photo, category: l.category, status: l.status, at: l.at });
 const full = (l, viewer) => ({
   ...card(l), description: l.description, facts: l.facts || [], country: l.country, seller: person(l.sellerId),
@@ -458,10 +481,13 @@ app.get('/api/listings/:id/ship', wrap(async (q, s) => {
   const u = need(q, s); if (!u) return;
   const l = listings.find((x) => x.id === q.params.id);
   if (!l || l.status !== 'sold' || l.sellerId !== u.id) return s.status(404).json({ error: 'Not your sale.' });
-  const sh = l.ship || {};
-  const text = [`Homing ${sh.code}`, l.title, sh.name, sh.line1, sh.line2, `${sh.zip} ${sh.city}`, COUNTRIES[sh.country]?.name].filter((x) => x && x.trim()).join('\n');
-  const qr = await QRCode.toString(text, { type: 'svg', margin: 0, color: { dark: '#0a0a0c', light: '#0000' }, errorCorrectionLevel: 'M' });
-  s.json({ item: card(l), buyer: person(l.buyerId), ship: sh, qr, tracking: l.tracking || null, paidAt: l.soldAt, from: u.address || null });
+  const sh = l.ship || (l.ship = {});
+  if (!sh.labelKey) { sh.labelKey = crypto.randomBytes(12).toString('hex'); persist(); }
+  // the QR opens the full shipping label, ready to print and stick on the parcel
+  const labelUrl = `${origin(q)}/label/${sh.labelKey}`;
+  const qr = await QRCode.toString(labelUrl, { type: 'svg', margin: 0, color: { dark: '#0a0a0c', light: '#0000' }, errorCorrectionLevel: 'M' });
+  const { labelKey, ...shipOut } = sh;
+  s.json({ item: card(l), buyer: person(l.buyerId), ship: shipOut, qr, labelUrl, tracking: l.tracking || null, paidAt: l.soldAt, from: u.address || null });
 }));
 const CARRIERS = { DHL: 'DHL', DEUTSCHE_DE: 'Deutsche Post', HERMES: 'Hermes', DPD: 'DPD', GLS: 'GLS', UPS: 'UPS' };
 app.post('/api/listings/:id/track', wrap(async (q, s) => {
@@ -498,7 +524,23 @@ app.post('/api/listings/:id/review', (q, s) => {
   if (l.reviews?.[side]) return s.status(400).json({ error: 'You already reviewed this deal.' });
   const stars = Math.round(Number(q.body.stars));
   if (!(stars >= 1 && stars <= 5)) return s.status(400).json({ error: 'Pick 1 to 5 stars.' });
-  l.reviews = { ...(l.reviews || {}), [side]: { stars, text: String(q.body.text || '').trim().slice(0, 200), at: Date.now() } };
+  l.reviews = { ...(l.reviews || {}), [side]: { stars, text: String(q.body.text || '').trim().slice(0, 600), at: Date.now() } };
+  persist();
+  s.json(full(l, u.id));
+});
+// The person a review is about can answer it once, in words.
+app.post('/api/listings/:id/review/reply', (q, s) => {
+  const u = need(q, s); if (!u) return;
+  const l = listings.find((x) => x.id === q.params.id);
+  if (!l || l.status !== 'sold') return s.status(400).json({ error: 'Not a finished deal.' });
+  // the buyer's review is about the seller; the seller's review is about the buyer
+  const side = l.sellerId === u.id ? 'buyer' : l.buyerId === u.id ? 'seller' : null;
+  const r = side && l.reviews?.[side];
+  if (!r) return s.status(400).json({ error: 'There is no review to answer.' });
+  if (r.reply) return s.status(400).json({ error: 'You already answered.' });
+  const text = String(q.body.text || '').trim().slice(0, 600);
+  if (text.length < 2) return s.status(400).json({ error: 'Write your answer.' });
+  r.reply = { text, at: Date.now() };
   persist();
   s.json(full(l, u.id));
 });
@@ -516,21 +558,88 @@ app.get('/api/users/:id', (q, s) => {
   const reviews = [];
   for (const l of listings) {
     if (l.status !== 'sold') continue;
-    if (l.sellerId === u.id && l.reviews?.buyer) reviews.push({ ...l.reviews.buyer, from: person(l.buyerId)?.name, role: 'bought', item: l.title, price: l.price, currency: currencyOf(l.country) });
-    if (l.buyerId === u.id && l.reviews?.seller) reviews.push({ ...l.reviews.seller, from: person(l.sellerId)?.name, role: 'sold', item: l.title, price: l.price, currency: currencyOf(l.country) });
+    if (l.sellerId === u.id && l.reviews?.buyer) reviews.push({ ...l.reviews.buyer, listingId: l.id, from: person(l.buyerId)?.name, fromId: l.buyerId, fromAvatar: userOf(l.buyerId)?.avatar || null, role: 'bought', item: l.title, price: l.price, currency: currencyOf(l.country) });
+    if (l.buyerId === u.id && l.reviews?.seller) reviews.push({ ...l.reviews.seller, listingId: l.id, from: person(l.sellerId)?.name, fromId: l.sellerId, fromAvatar: userOf(l.sellerId)?.avatar || null, role: 'sold', item: l.title, price: l.price, currency: currencyOf(l.country) });
   }
   reviews.sort((a, b) => b.at - a.at);
   const forSale = listings.filter((l) => l.sellerId === u.id && l.status === 'open' && l.photo).sort((a, b) => b.at - a.at).map(card);
-  s.json({ id: u.id, name: u.name, country: u.country, since: u.at, ...stats(u.id), forSale, feed: reviews });
+  s.json({ id: u.id, name: u.name, avatar: u.avatar || null, country: u.country, since: u.at, ...stats(u.id), forSale, feed: reviews });
 });
 
 // Leaderboard per country: counts and stars come only from finished deals.
 app.get('/api/leaderboard', (q, s) => {
   const country = String(q.query.country || '');
   const by = q.query.by === 'buyers' ? 'bought' : 'sold';
-  s.json(users.filter((u) => u.country === country).map((u) => ({ id: u.id, name: u.name, ...stats(u.id) }))
+  s.json(users.filter((u) => u.country === country).map((u) => ({ id: u.id, name: u.name, avatar: u.avatar || null, ...stats(u.id) }))
     .filter((u) => u[by] > 0).sort((a, b) => b[by] - a[by] || (b.stars || 0) - (a.stars || 0)).slice(0, 20));
 });
+
+// Profile picture: one photo, shown on your page, your items, reviews and the leaderboard.
+app.post('/api/me/avatar', upload.single('photo'), (q, s) => {
+  const drop = () => { if (q.file) fs.rmSync(q.file.path, { force: true }); };
+  const u = need(q, s); if (!u) return drop();
+  if (!q.file || !/^image\/(jpeg|png|webp)$/.test(q.file.mimetype)) { drop(); return s.status(400).json({ error: 'Pick a photo (JPG, PNG or WebP).' }); }
+  if (q.file.size > 5 * 1024 * 1024) { drop(); return s.status(400).json({ error: 'That photo is too big (max 5 MB).' }); }
+  // trust the bytes, not the label the browser sent
+  const h = Buffer.alloc(12); const fd = fs.openSync(q.file.path, 'r'); fs.readSync(fd, h, 0, 12, 0); fs.closeSync(fd);
+  const real = (h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff) || h.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])) || (h.toString('latin1', 0, 4) === 'RIFF' && h.toString('latin1', 8, 12) === 'WEBP');
+  if (!real) { drop(); return s.status(400).json({ error: 'That file is not a photo.' }); }
+  const ext = { 'image/png': '.png', 'image/webp': '.webp' }[q.file.mimetype] || '.jpg';
+  const name = 'avatar_' + q.file.filename + ext;
+  fs.renameSync(q.file.path, path.join(UPLOADS, name));
+  if (u.avatar?.startsWith('/uploads/avatar_')) fs.rmSync(path.join(UPLOADS, path.basename(u.avatar)), { force: true });
+  u.avatar = '/uploads/' + name;
+  persist();
+  s.json(u);
+});
+app.delete('/api/me/avatar', (q, s) => {
+  const u = need(q, s); if (!u) return;
+  if (u.avatar?.startsWith('/uploads/avatar_')) fs.rmSync(path.join(UPLOADS, path.basename(u.avatar)), { force: true });
+  delete u.avatar; persist(); s.json(u);
+});
+
+// The shipping label the QR opens: both addresses, the order code and the item on one
+// 100 x 150 mm sheet (the usual parcel label size), ready to print and stick on.
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+app.get('/label/:key', wrap(async (q, s) => {
+  const key = String(q.params.key);
+  const l = listings.find((x) => x.status === 'sold' && x.ship?.labelKey && x.ship.labelKey === key);
+  if (!l) return s.status(404).type('html').send('<!doctype html><meta name="viewport" content="width=device-width"><p style="font:16px system-ui;padding:24px">This label does not exist.</p>');
+  const sh = l.ship; const seller = userOf(l.sellerId) || {}; const fa = seller.address || {};
+  const addr = (name, a) => [name, a.line1, a.line2, [a.zip, a.city].filter(Boolean).join(' '), COUNTRIES[a.country]?.name]
+    .filter((x) => x && String(x).trim()).map(esc).join('<br>');
+  const qr = await QRCode.toString(`${origin(q)}/label/${key}`, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' });
+  const tr = l.tracking;
+  s.type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Label ${esc(sh.code)}</title><style>
+@page{size:100mm 150mm;margin:0}
+*{box-sizing:border-box}html,body{margin:0;background:#eef1f6;font-family:"Inter Tight",Inter,system-ui,sans-serif;color:#0a0a0c}
+.bar{display:flex;gap:10px;justify-content:center;align-items:center;padding:16px;font-size:14px;color:#555}
+.bar button{font:600 15px "Inter Tight",Inter,system-ui,sans-serif;border:0;border-radius:999px;padding:12px 24px;background:#0b57d0;color:#fff;cursor:pointer;transition:transform .12s}
+.bar button:active{transform:scale(.95)}
+.label{width:100mm;height:150mm;margin:0 auto 24px;background:#fff;padding:6mm;display:flex;flex-direction:column;gap:3.5mm;box-shadow:0 2px 16px rgba(10,20,50,.12)}
+.top{display:flex;justify-content:space-between;align-items:center;border-bottom:.6mm solid #0a0a0c;padding-bottom:2.5mm}
+.brand{font-weight:800;font-size:5.4mm;letter-spacing:-.03em;color:#0b57d0}
+.code{font:700 4.6mm ui-monospace,Menlo,Consolas,monospace;letter-spacing:.04em}
+.k{font-size:2.5mm;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#555;margin-bottom:1mm}
+.from{font-size:3.1mm;line-height:1.35}
+.to{border:.6mm solid #0a0a0c;padding:3mm 3.5mm;font-size:5mm;line-height:1.3;font-weight:600}
+.trk{font-size:3.3mm;line-height:1.4}
+.stamp{border:.4mm dashed #888;height:15mm;display:flex;align-items:center;justify-content:center;font-size:2.7mm;color:#666;text-align:center;padding:0 3mm}
+.row{display:flex;gap:4mm;align-items:flex-end;margin-top:auto}
+.row svg{width:28mm;height:28mm;flex:0 0 28mm}
+.meta{font-size:2.9mm;line-height:1.45;flex:1}
+@media print{html,body{background:#fff}.bar{display:none}.label{margin:0;box-shadow:none}}
+</style></head><body>
+<div class="bar"><button onclick="print()">Print label</button></div>
+<div class="label">
+  <div class="top"><span class="brand">Homing</span><span class="code">${esc(sh.code)}</span></div>
+  <div><div class="k">From</div><div class="from">${addr(seller.fullName || seller.name, fa)}</div></div>
+  <div class="to"><div class="k">To</div>${addr(sh.name, sh)}</div>
+  ${tr ? `<div class="trk"><div class="k">Tracking</div><b>${esc(tr.carrierName)}</b> ${esc(tr.number)}</div>` : '<div class="stamp">Postage: stick the carrier stamp here</div>'}
+  <div class="row">${qr}<div class="meta"><b>${esc(l.title)}</b><br>Paid with PayPal · ${esc(new Date(l.soldAt).toLocaleDateString('en-GB'))}<br>Order ${esc(sh.code)}</div></div>
+</div></body></html>`);
+}));
 
 app.post('/api/reset', (_q, s) => {
   users = seed('users.json'); listings = seed('listings.json'); wants = seed('wants.json');

@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Inter+Tight:wght@600..900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/app.css?v=63">
+<link rel="stylesheet" href="/app.css?v=65">
 <link rel="stylesheet" href="/intro.css?v=7">
 </head>
 <body>
@@ -183,7 +183,7 @@
     <p class="kicker" id="shKick"></p>
     <h2>Ship it</h2>
     <figure class="mini"><img id="shImg" alt=""><figcaption><b id="shTitle"></b><span id="shPaid"></span></figcaption></figure>
-    <div class="qrbox"><div class="qr" id="shQr"></div><div class="qr-t"><b id="shCode"></b><span>Write this code on the box. The QR holds the address and the code, scan it to fill any shipping label.</span></div></div>
+    <div class="qrbox"><div class="qr" id="shQr"></div><div class="qr-t"><b id="shCode"></b><span>Scan it with your phone: it opens the full label with both addresses and this code. Print it, stick it on the box, ship.</span><a class="primary sm" id="shLabel" target="_blank" rel="noopener">Open label to print</a></div></div>
     <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>Send to</h3>
     <div class="addr" id="shTo"></div>
     <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9"/></svg>Pack it</h3>
@@ -196,7 +196,7 @@
 
   <!-- MY STUFF -->
   <section class="screen me" data-screen="me" hidden>
-    <div class="me-head"><span class="av lg" id="mAv"></span><div><h2 id="mName"></h2><p class="sub" id="mStats"></p></div></div>
+    <div class="me-head"><label class="av-pick" title="Change your photo"><span class="av lg" id="mAv"></span><input type="file" id="mAvIn" accept="image/jpeg,image/png,image/webp" hidden><i class="av-edit" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8h3l1.6-2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.3"/></svg></i><span class="sr">Change your photo</span></label><div><h2 id="mName"></h2><p class="sub" id="mStats"></p></div></div>
     <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0z"/><circle class="h" cx="8" cy="8" r="1.6"/></svg>Selling</h3><ul class="rows" id="mSell"></ul>
     <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>Looking for</h3><ul class="rows" id="mLook"></ul>
     <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M5 8h14l-1 12.2a1 1 0 0 1-1 .8H7a1 1 0 0 1-1-.8z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>Bought</h3><ul class="rows" id="mBought"></ul>
@@ -228,6 +228,6 @@
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script type="module" src="/shelf-boot.js?v=44"></script>
-<script src="/app.js?v=56" type="module"></script>
+<script src="/app.js?v=57" type="module"></script>
 </body>
 </html>
