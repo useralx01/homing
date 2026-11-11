@@ -1,43 +1,8 @@
-/* ===== opening: a calm logo sting (~2.5 s) =====
-   white screen, a soft blue glow drifts in from the corner. The mark rises from below while it turns and
-   draws itself, settles in the middle, then slides left as "Homing" comes out from behind it. A faint dot
-   grid fades in under the name. Then everything fades into the app. */
-.intro{position:fixed;inset:0;z-index:100;display:grid;place-items:center;overflow:hidden;cursor:pointer;background:#fff;
-  transition:opacity .5s cubic-bezier(.4,0,.2,1)}
+/* ===== opening: a soft rubber tile in real 3D (three.js, public/intro.js) =====
+   the tile drops in and bounces, the blue logo grows out of it, "Homing" comes up under it. */
+.intro{position:fixed;inset:0;z-index:100;overflow:hidden;cursor:pointer;background:#fff;transition:opacity .5s cubic-bezier(.4,0,.2,1)}
 .intro.out{opacity:0;pointer-events:none}
-.intro.out .in-row{transform:translateY(-10px) scale(.98);transition:transform .5s cubic-bezier(.4,0,.2,1)}
-/* soft blue light from the top right that slowly grows */
-.in-glow{position:absolute;right:-48vmax;top:-48vmax;width:100vmax;height:100vmax;border-radius:50%;
-  background:radial-gradient(closest-side,rgba(59,130,255,.34),rgba(59,130,255,.12) 45%,rgba(59,130,255,0) 72%);opacity:0;transform:scale(.7)}
-.go .in-glow{animation:in-glow 2.4s cubic-bezier(.22,1,.36,1) both}
-@keyframes in-glow{to{opacity:1;transform:scale(1)}}
-/* a faint dot grid, only around the name */
-.in-dots{position:absolute;inset:0;opacity:0;
-  background:radial-gradient(circle,rgba(11,87,208,.22) 1.1px,transparent 1.6px) 50% 50%/22px 22px;
-  -webkit-mask-image:radial-gradient(38% 26% at 50% 50%,#000,transparent);mask-image:radial-gradient(38% 26% at 50% 50%,#000,transparent)}
-.go .in-dots{animation:in-fade 1s ease-out 1.05s both}
-@keyframes in-fade{to{opacity:1}}
-
-.in-row{position:relative;display:flex;align-items:center;gap:14px;transform:translateX(var(--half,0px))}
-.go .in-row{animation:in-slide .72s cubic-bezier(.65,0,.25,1) 1.08s both}
-@keyframes in-slide{to{transform:translateX(0)}}
-/* the mark: rises from below, turning, and draws itself on the way */
-.in-mark{width:76px;height:76px;flex:none;overflow:visible;transform:translateY(42vh) rotate(-80deg) scale(.82);opacity:0}
-.go .in-mark{animation:in-rise 1s cubic-bezier(.16,1,.3,1) .05s both}
-@keyframes in-rise{0%{opacity:0;transform:translateY(42vh) rotate(-80deg) scale(.82)}12%{opacity:1}100%{opacity:1;transform:none}}
-.in-mark .s1,.in-mark .s2,.in-mark .s3,.in-mark .s4{stroke-dasharray:1 2;stroke-dashoffset:1;opacity:0}
-.in-mark .s0{transform-box:fill-box;transform-origin:center;transform:scale(0)}
-.go .in-mark .s0{animation:in-pop .4s cubic-bezier(.34,1.56,.64,1) .12s both}
-.go .in-mark .s1{animation:in-draw .42s cubic-bezier(.45,0,.2,1) .18s forwards}
-.go .in-mark .s2{animation:in-draw .16s ease-out .52s forwards}
-.go .in-mark .s3{animation:in-draw .16s ease-out .62s forwards}
-.go .in-mark .s4{animation:in-draw .36s cubic-bezier(.45,0,.2,1) .7s forwards}
-@keyframes in-pop{to{transform:scale(1)}}
-@keyframes in-draw{from{opacity:1;stroke-dashoffset:1}to{opacity:1;stroke-dashoffset:0}}
-/* the name comes out from behind the mark */
-.in-word{display:block;overflow:hidden;padding:6px 4px 10px 0;margin:-6px 0 -10px}
-.in-word span{display:block;font-family:"Inter Tight",Inter,sans-serif;font-weight:760;font-size:62px;line-height:1;letter-spacing:-.045em;color:#0b57d0;
-  transform:translateX(-104%)}
-.go .in-word span{animation:in-out .72s cubic-bezier(.65,0,.25,1) 1.08s both}
-@keyframes in-out{to{transform:none}}
-@media (max-width:420px){.in-mark{width:60px;height:60px}.in-word span{font-size:48px}.in-row{gap:11px}}
+.intro canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.in-name{position:absolute;left:0;right:0;text-align:center;font-family:"Inter Tight",Inter,sans-serif;font-weight:760;font-size:46px;line-height:1;
+  letter-spacing:-.045em;color:#0b57d0;opacity:0;will-change:transform,opacity}
+@media (max-width:420px){.in-name{font-size:40px}}
