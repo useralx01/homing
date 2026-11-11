@@ -647,3 +647,102 @@ input,textarea,select{font-size:17px!important;caret-color:var(--blue)}
   .signin h1{font-size:64px}
   .signin .sub{font-size:19px}
 }
+
+/* ===== v11: feel — motion in small steps, Dot, one icon line ===== */
+:root{--spring:linear(0, 0.06 2%, 0.24 5%, 0.53 10%, 0.82 17%, 0.98 24%, 1.04 30%, 1.05 36%, 1.03 46%, 1.005 60%, 0.998 75%, 1);--travel:cubic-bezier(.65,0,.35,1)}
+
+/* page changes know their direction: forward comes in from the right, back slides back. The header stays put. */
+.top{view-transition-name:top}
+::view-transition-group(top){animation:none}
+html[data-dir=fwd]::view-transition-old(root){animation:vt-l-out .3s var(--ui) both}
+html[data-dir=fwd]::view-transition-new(root){animation:vt-r-in .5s var(--spring) both}
+html[data-dir=back]::view-transition-old(root){animation:vt-r-out .3s var(--ui) both}
+html[data-dir=back]::view-transition-new(root){animation:vt-l-in .5s var(--spring) both}
+@keyframes vt-l-out{to{opacity:0;transform:translateX(-14%)}}
+@keyframes vt-r-in{from{opacity:0;transform:translateX(26%)}}
+@keyframes vt-r-out{to{opacity:0;transform:translateX(18%)}}
+@keyframes vt-l-in{from{opacity:0;transform:translateX(-18%)}}
+/* buy button grows into the sheet */
+html[data-dir=sheet]::view-transition-old(root){animation:none}
+html[data-dir=sheet]::view-transition-new(root){animation:vt-fade .28s var(--ui) both}
+@keyframes vt-fade{from{opacity:0}}
+::view-transition-group(buy){animation-duration:.52s;animation-timing-function:var(--spring);border-radius:24px;overflow:hidden}
+::view-transition-old(buy),::view-transition-new(buy){height:100%;width:100%;object-fit:fill}
+::view-transition-old(buy){animation:vt-fade-out .2s var(--ui) both}
+::view-transition-new(buy){animation:vt-fade .3s var(--ui) .08s both}
+@keyframes vt-fade-out{to{opacity:0}}
+.sheet.instant .sheet-panel,.sheet.instant .sheet-bg{transition:none!important}
+
+/* tiles: a squash on the press, the render bounces a little */
+.big:active{transform:scale(.972,.952);transition-duration:.09s}
+.big .ren{transition:scale .4s var(--spring)}
+.big:active .ren{scale:1.08;transition-duration:.1s}
+.gcard:active{transform:scale(.965,.955);transition-duration:.09s}
+
+/* chips: one blue fill that slides to the picked one */
+.chips.has-pill{position:relative}
+.chips .pill{position:absolute;left:0;top:0;z-index:0;border-radius:999px;background:var(--blue);pointer-events:none;opacity:0;
+  box-shadow:0 8px 16px -10px rgba(11,87,208,.8);transition:transform .5s var(--spring),width .5s var(--spring),height .3s var(--ui),opacity .2s}
+.chips.has-pill button{position:relative;z-index:1;transition:color .25s var(--ui),transform .32s cubic-bezier(.34,1.56,.64,1),background .16s}
+.chips.has-pill button[aria-checked="true"]{background:transparent;animation:none}
+
+/* Post: squeeze -> arrow turns into a spinner -> check -> blue fill opens the waiting screen */
+.primary.morph{overflow:hidden;margin-inline:auto;transition:width .45s var(--spring),border-radius .45s var(--spring),transform .32s cubic-bezier(.34,1.56,.64,1),box-shadow .2s}
+.morph .lb{transition:opacity .18s var(--ui),transform .3s var(--ui)}
+.morph .ico{display:grid;place-items:center;width:22px;height:22px;transition:transform .45s var(--spring),margin .45s var(--spring)}
+.morph .ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.morph:disabled .ico{opacity:.5}
+.morph .sp{stroke-dasharray:50.3;stroke-dashoffset:50.3;opacity:0;transform-origin:12px 12px}
+.morph .ck{stroke-dasharray:20;stroke-dashoffset:20}
+.morph .ar{transition:opacity .2s,transform .4s var(--spring);transform-origin:12px 12px}
+.morph.m1{width:56px;border-radius:28px;transform:scale(.94)}
+.morph.m1 .lb{opacity:0;transform:translateX(-12px);position:absolute}
+.morph.m1 .ar{transform:rotate(90deg) scale(.7)}
+.morph.m2{transform:none}
+.morph.m2 .ar{opacity:0;transform:rotate(180deg) scale(.4)}
+.morph.m2 .sp{opacity:1;stroke-dashoffset:34;animation:spin2 .7s linear infinite}
+@keyframes spin2{to{transform:rotate(360deg)}}
+.morph.m3 .sp{animation:none;stroke-dashoffset:0;opacity:0;transition:opacity .2s}
+.morph.m3 .ck{stroke-dashoffset:0;transition:stroke-dashoffset .35s var(--e)}
+.morph.m3{transform:scale(1.06);transition:transform .35s var(--spring)}
+.fill{position:fixed;inset:0;z-index:60;background:linear-gradient(180deg,#2f74f0,#0b57d0);clip-path:circle(28px at var(--x) var(--y));pointer-events:none}
+.fill.grow{clip-path:circle(150vmax at var(--x) var(--y));transition:clip-path .55s var(--travel)}
+.fill.out{opacity:0;transition:opacity .45s var(--ui)}
+
+/* Dot, the mascot: empty and waiting moments */
+.dotempty{display:grid;justify-items:center;text-align:center;gap:4px;padding:26px 0 6px}
+.dotempty img,.dotstage img{width:140px;height:140px;transform-origin:50% 92%;filter:drop-shadow(0 18px 18px rgba(11,60,180,.22));animation:dotin .7s var(--spring) both,dotidle 3.4s ease-in-out .7s infinite}
+.dotempty b{font-family:"Inter Tight",Inter,sans-serif;font-size:21px;font-weight:740;letter-spacing:-.03em;margin-top:6px}
+.dotempty p{color:var(--muted);font-size:15px;line-height:1.5;max-width:32ch}
+.dotempty.sm img{width:96px;height:96px}
+.dotempty.sm b{font-size:17px}
+.dotstage{display:grid;place-items:center;height:156px;margin:6px 0 4px}
+.dotstage img.swap{animation:dotswap .6s var(--spring) both,dotidle 3.4s ease-in-out .6s infinite}
+@keyframes dotin{from{opacity:0;transform:translateY(16px) scale(.7,.6)}}
+@keyframes dotswap{0%{transform:scale(1.12,.82)}100%{transform:none}}
+@keyframes dotidle{0%,100%{transform:translateY(0) scale(1,1)}40%{transform:translateY(-7px) scale(.985,1.02)}60%{transform:translateY(-5px) scale(.99,1.015)}88%{transform:translateY(0) scale(1.02,.98)}}
+#bEmpty{margin-top:24px}
+.rows li.none{display:flex;align-items:center;gap:12px}
+.rows li.none .dotmini{width:44px;height:44px;flex:none;filter:drop-shadow(0 6px 8px rgba(11,60,180,.2))}
+.rows li.none a{margin-left:4px}
+
+/* sold / paid: the tick draws, then the money counts up */
+.bigamt{font-family:"Inter Tight",Inter,sans-serif;font-size:52px;font-weight:780;letter-spacing:-.045em;color:var(--blue);font-variant-numeric:tabular-nums;line-height:1;margin:-4px 0 10px}
+.bigamt:empty{display:none}
+.live .cnt{color:var(--ok);font-variant-numeric:tabular-nums}
+
+/* icons: one thin line everywhere (1.75), filled when picked */
+.back svg{stroke-width:1.9}
+.links svg,.facts svg,.rows .ph svg,.chev,.ic,.posts .chev{stroke-width:1.75}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
+.ic .h{fill:currentColor;stroke:none}
+h3.hi{display:flex;align-items:center;gap:10px}
+h3.hi .ic{color:var(--blue)}
+.seg button{display:flex;align-items:center;justify-content:center;gap:8px}
+.seg .ic{width:18px;height:18px;transition:color .2s}
+.seg button.on .ic{color:var(--blue)}
+.seg button.on .ic .f{fill:currentColor}
+.seg button.on .ic .h{fill:#fff}
+.seg::before{transition:transform .5s var(--spring)}
+@media (prefers-reduced-motion:reduce){.fill{display:none}.dotempty img,.dotstage img{animation:none}}
+.rows li.none .dotmini{background:none;border-radius:0;object-fit:contain;width:44px;height:44px}

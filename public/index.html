@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Inter+Tight:wght@600..900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/app.css?v=56">
+<link rel="stylesheet" href="/app.css?v=59">
 <link rel="stylesheet" href="/intro.css?v=7">
 </head>
 <body>
@@ -81,7 +81,7 @@
         <textarea name="description" id="sDesc" rows="4" maxlength="1200" placeholder="Condition, flaws, what comes with it. People buy instantly, so say it all."></textarea>
         <small class="hint" id="sDescHint"></small>
       </label>
-      <button class="primary" id="post" type="submit" disabled>Post</button>
+      <button class="primary morph" id="post" type="submit" disabled><span class="lb">Post</span><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="ar" d="M5 12h14M13 6l6 6-6 6"/><circle class="sp" cx="12" cy="12" r="8"/><path class="ck" d="M6.5 12.5l3.8 3.8L17.5 9"/></svg></span></button>
       <p class="need" id="sellNeed"></p>
       <p class="err" id="sellErr" role="alert"></p>
     </form>
@@ -89,6 +89,7 @@
 
   <!-- SELL: after posting -->
   <section class="screen posted" data-screen="posted" hidden>
+    <div class="dotstage" id="pDot"><img src="/img/dot-search.webp" alt="" data-k="search"></div>
     <figure class="mini"><img id="pImg" alt=""><figcaption><b id="pTitle"></b><span id="pPrice"></span></figcaption></figure>
     <div class="live" id="pLive">
       <div class="ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><circle class="arc" id="pArc" cx="24" cy="24" r="21"/></svg></div>
@@ -116,6 +117,7 @@
 
   <!-- BUY: result -->
   <section class="screen found" data-screen="found" hidden>
+    <div class="dotstage" id="fDot"><img src="/img/dot-search.webp" alt="" data-k="search"></div>
     <div class="live" id="fLive">
       <div class="ring spin"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><circle class="arc" cx="24" cy="24" r="21"/></svg></div>
       <div><b>Looking</b><span id="fSub"></span></div>
@@ -150,6 +152,7 @@
   <!-- PAID -->
   <section class="screen paid" data-screen="paid" hidden>
     <svg class="tick" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg>
+    <b class="bigamt" id="paidAmt"></b>
     <h2 id="paidHead">It's yours.</h2>
     <p class="sub" id="paidSub"></p>
     <figure class="mini"><img id="paidImg" alt=""><figcaption><b id="paidTitle"></b><span id="paidPrice"></span></figcaption></figure>
@@ -162,29 +165,29 @@
     <h2>Ship it</h2>
     <figure class="mini"><img id="shImg" alt=""><figcaption><b id="shTitle"></b><span id="shPaid"></span></figcaption></figure>
     <div class="qrbox"><div class="qr" id="shQr"></div><div class="qr-t"><b id="shCode"></b><span>Write this code on the box. The QR holds the address and the code, scan it to fill any shipping label.</span></div></div>
-    <h3>Send to</h3>
+    <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>Send to</h3>
     <div class="addr" id="shTo"></div>
-    <h3>Pack it</h3>
+    <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9"/></svg>Pack it</h3>
     <div class="notes" id="shNotes"></div>
-    <h3>Tracking</h3>
+    <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>Tracking</h3>
     <div id="shTrack"></div>
-    <h3>Nearest post office</h3>
+    <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10l8-6 8 6v10H4z"/><path d="M9 20v-5h6v5"/></svg>Nearest post office</h3>
     <ul class="posts" id="shPosts"></ul>
   </section>
 
   <!-- MY STUFF -->
   <section class="screen me" data-screen="me" hidden>
     <div class="me-head"><span class="av lg" id="mAv"></span><div><h2 id="mName"></h2><p class="sub" id="mStats"></p></div></div>
-    <h3>Selling</h3><ul class="rows" id="mSell"></ul>
-    <h3>Looking for</h3><ul class="rows" id="mLook"></ul>
-    <h3>Bought</h3><ul class="rows" id="mBought"></ul>
+    <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0z"/><circle class="h" cx="8" cy="8" r="1.6"/></svg>Selling</h3><ul class="rows" id="mSell"></ul>
+    <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>Looking for</h3><ul class="rows" id="mLook"></ul>
+    <h3 class="hi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M5 8h14l-1 12.2a1 1 0 0 1-1 .8H7a1 1 0 0 1-1-.8z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>Bought</h3><ul class="rows" id="mBought"></ul>
     <button class="textbtn" id="signout">Sign out</button>
   </section>
 
   <!-- LEADERBOARD -->
   <section class="screen board" data-screen="board" hidden>
     <h2>Leaderboard</h2>
-    <div class="seg" id="seg" role="tablist"><button data-by="sellers" class="on">Sellers</button><button data-by="buyers">Buyers</button></div>
+    <div class="seg" id="seg" role="tablist"><button data-by="sellers" class="on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0z"/><circle class="h" cx="8" cy="8" r="1.6"/></svg>Sellers</button><button data-by="buyers"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M5 8h14l-1 12.2a1 1 0 0 1-1 .8H7a1 1 0 0 1-1-.8z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>Buyers</button></div>
     <div class="podium" id="podium"></div>
     <ol class="rank" id="rank"></ol>
     <p class="fine">Only real deals count. You can only review someone after you bought from them or sold to them.</p>
@@ -204,7 +207,7 @@
 <a class="alert" id="alert" href="#" hidden><img alt="" id="alImg"><span><b id="alHead"></b><small id="alSub"></small></span><i>Ship it</i></a>
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script type="module" src="/shelf-boot.js?v=43"></script>
-<script src="/app.js?v=52" type="module"></script>
+<script type="module" src="/shelf-boot.js?v=44"></script>
+<script src="/app.js?v=53" type="module"></script>
 </body>
 </html>

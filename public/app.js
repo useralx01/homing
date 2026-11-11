@@ -7,6 +7,37 @@ const STAR = '<svg class="star" viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.9 6.4
 const PP = '<span>Pay <b class="amt"></b> with</span><b style="font-style:italic;font-weight:800;color:#003087">Pay</b><b style="font-style:italic;font-weight:800;color:#0070e0;margin-left:-8px">Pal</b>';
 
 let me = null, meta = null;
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SPRING = 'linear(0, 0.06 2%, 0.24 5%, 0.53 10%, 0.82 17%, 0.98 24%, 1.04 30%, 1.05 36%, 1.03 46%, 1.005 60%, 0.998 75%, 1)';
+// haptics with levels: light = frequent taps, medium = moving between screens, success = posted / paid / sold
+const HAPTIC = { light: 7, medium: 14, heavy: 26, success: [14, 60, 22, 60, 40], error: [30, 70, 30] };
+const haptic = (lvl = 'light') => { try { if (matchMedia('(pointer:coarse)').matches) navigator.vibrate?.(HAPTIC[lvl] ?? lvl); } catch {} };
+// money that counts up after the tick has drawn itself
+function countUp(el, to, c, delay = 650) {
+  if (REDUCE) { el.textContent = money(to, c); return; }
+  el.textContent = money(0, c);
+  const t0 = performance.now() + delay;
+  const step = (now) => { const k = Math.min(1, Math.max(0, (now - t0) / 850)), e = 1 - Math.pow(1 - k, 3); el.textContent = money(k < 1 ? Math.round(to * e) : to, c); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+// the mascot, Dot, for empty and waiting moments
+const dot = (kind, title, text = '', cls = '') => `<div class="dotempty ${cls}"><img src="/img/dot-${kind}.webp" alt="" width="160" height="160"><b>${title}</b>${text ? `<p>${text}</p>` : ''}</div>`;
+function dotSwap(id, kind) { const im = $(id + ' img'); if (!im || im.dataset.k === kind) return; im.dataset.k = kind; im.src = `/img/dot-${kind}.webp`; im.classList.remove('swap'); void im.offsetWidth; im.classList.add('swap'); }
+// chips: the selected fill slides between them
+function movePill(box) {
+  if (!box) return;
+  let p = box.querySelector(':scope > .pill');
+  const b = box.querySelector('button[aria-checked="true"]');
+  if (!b || !b.offsetWidth) { if (p) { p.style.opacity = '0'; p.dataset.on = ''; } return; }
+  if (!p) { p = document.createElement('i'); p.className = 'pill'; box.prepend(p); box.classList.add('has-pill'); }
+  const first = !p.dataset.on;
+  if (first) p.style.transition = 'none';
+  p.style.width = b.offsetWidth + 'px'; p.style.height = b.offsetHeight + 'px';
+  p.style.transform = `translate(${b.offsetLeft}px,${b.offsetTop}px)`; p.style.opacity = '1'; p.dataset.on = '1';
+  if (first) { if (!REDUCE) p.animate([{ scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1 }], { duration: 420, easing: SPRING }); requestAnimationFrame(() => requestAnimationFrame(() => (p.style.transition = ''))); }
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('.chips button'); if (b) { movePill(b.parentElement); haptic('light'); } });
+addEventListener('resize', () => $$('.chips').forEach(movePill));
 try { me = JSON.parse(localStorage.getItem('homing.user') || 'null'); } catch {}
 
 const api = async (url, opts = {}) => {
@@ -40,11 +71,24 @@ const show = (name) => {
   $('#top').classList.toggle('at-home', name === 'home');
   $('#sheet').hidden = true; document.body.classList.remove('locked');
   window.scrollTo(0, 0);
+  requestAnimationFrame(() => $$(`[data-screen="${name}"] .chips`).forEach(movePill));
 };
-let depth = 0;
-window.addEventListener('hashchange', () => { depth++; go(); });
+let depth = 0, skipVT = false;
+// forward slides in from the right, back slides back
+const RANK = { home: 0, '': 0, sell: 1, buy: 1, browse: 1, board: 1, me: 1, posted: 2, found: 2, item: 2, user: 2, paid: 3, ship: 3, signed: 0 };
+const rank = (h) => RANK[(h || '').slice(1).split('/')[0]] ?? 1;
+const navStack = [location.hash];
+window.addEventListener('hashchange', () => {
+  const h = location.hash, prev = navStack.at(-1);
+  let dir = 'fwd';
+  if (navStack.length > 1 && navStack.at(-2) === h) { navStack.pop(); dir = 'back'; }
+  else { navStack.push(h); if (rank(h) < rank(prev)) dir = 'back'; }
+  document.documentElement.dataset.dir = dir;
+  depth++; haptic('medium'); go();
+});
 document.documentElement.classList.toggle('vt', !!document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches);
 const go = () => {
+  if (skipVT) { skipVT = false; return route(); }
   if (!document.documentElement.classList.contains('vt')) return route();
   const t = document.startViewTransition(() => route());
   t.ready.catch(() => {}); t.finished.catch(() => {}); t.updateCallbackDone.catch(() => {});
@@ -173,9 +217,22 @@ function stopWaiting() {
   if (location.hash.startsWith('#posted')) return;
   clearInterval(waitT); clearInterval(pollT); waitT = pollT = null;
 }
+// Post: squeeze, the arrow turns into a spinner, then a check, then blue fills the screen into the waiting screen
+async function morphPost(btn) {
+  if (REDUCE) return null;
+  btn.classList.add('m1'); await wait(340);
+  btn.classList.add('m2'); await wait(700);
+  btn.classList.add('m3'); haptic('light'); await wait(420);
+  const r = btn.getBoundingClientRect(), f = document.createElement('div');
+  f.className = 'fill'; f.style.setProperty('--x', r.left + r.width / 2 + 'px'); f.style.setProperty('--y', r.top + r.height / 2 + 'px');
+  document.body.append(f); void f.offsetWidth; f.classList.add('grow'); await wait(460);
+  return f;
+}
+let posting = false;
 sellForm.onsubmit = async (e) => {
   e.preventDefault();
-  if ($('#post').disabled) return;
+  if ($('#post').disabled || posting) return;
+  posting = true;
   $('#sellErr').textContent = '';
   const fd = new FormData();
   fd.append('photo', shotFile);
@@ -189,19 +246,28 @@ sellForm.onsubmit = async (e) => {
   live.className = 'live'; $('.ring', live).className = 'ring spin';
   $('#pHead').textContent = 'Checking your photo'; $('#pSub').textContent = 'Making sure it shows what you wrote.';
   $('#pOutcome').hidden = true; $('#pOutcome').innerHTML = '';
+  dotSwap('#pDot', 'search');
+  const req = api('/api/sell', { method: 'POST', body: fd }); req.catch(() => {});
+  const fill = await morphPost($('#post'));
+  if (fill) skipVT = true;
   location.hash = 'posted';
+  if (fill) { setTimeout(() => fill.classList.add('out'), 80); setTimeout(() => fill.remove(), 700); }
+  posting = false;
   const step = setTimeout(() => { $('#pHead').textContent = 'Finding buyers'; $('#pSub').textContent = `Everyone in ${meta.countries[me.country].name} looking for this.`; }, 1700);
   try {
-    const out = await api('/api/sell', { method: 'POST', body: fd });
+    const out = await req;
     clearTimeout(step);
+    haptic('success');
     pending.id = out.listing.id;
     resetSell();
     if (out.sentTo.length) waitForBuyer(out);
     else noBuyer(out.listing.id, 'Nobody is looking for this right now.');
   } catch (err) {
     clearTimeout(step);
-    pending = null;
+    pending = null; posting = false;
+    $('#post').classList.remove('m1', 'm2', 'm3');
     location.hash = 'sell';
+    haptic('error');
     $('#sellErr').textContent = err.message;
   }
 };
@@ -209,12 +275,14 @@ function resetSell() {
   sellForm.reset(); shotFile = null;
   $('#shot').classList.remove('has'); $('#shotImg').removeAttribute('src');
   $$('#sCats button').forEach((b) => b.setAttribute('aria-checked', 'false'));
+  $('#post').classList.remove('m1', 'm2', 'm3'); movePill($('#sCats'));
   checkSell();
 }
 const WAIT_S = 45;
 function waitForBuyer(out) {
   const live = $('#pLive'), who = out.sentTo.map((s) => s.name);
   $('.ring', live).className = 'ring';
+  dotSwap('#pDot', 'wait');
   $('#pHead').textContent = `Sent to ${names(who)}`;
   let left = WAIT_S;
   const tick = () => {
@@ -238,7 +306,9 @@ function sold(l) {
   $('#pArc').style.strokeDashoffset = '0';
   $('.ring', live).innerHTML = '<svg class="tick" viewBox="0 0 52 52" style="width:48px;height:48px;margin:0;transform:none"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg>';
   $('#pHead').textContent = `Sold to ${l.buyer.name}`;
-  $('#pSub').textContent = `${money(l.price, l.currency)} paid with PayPal.`;
+  $('#pSub').innerHTML = '<b class="cnt"></b> paid with PayPal.';
+  countUp($('#pSub .cnt'), l.price, l.currency, 500);
+  dotSwap('#pDot', 'happy'); haptic('success');
   const o = $('#pOutcome');
   o.hidden = false;
   o.innerHTML = `<a class="primary" href="#ship/${l.id}" style="margin-top:4px">Ship it</a><div class="rate"></div>`;
@@ -249,6 +319,7 @@ function noBuyer(lid, why) {
   const live = $('#pLive');
   live.className = 'live miss'; $('.ring', live).className = 'ring';
   $('#pHead').textContent = 'No buyer yet';
+  dotSwap('#pDot', 'sleep');
   $('#pSub').textContent = why;
   const o = $('#pOutcome');
   o.hidden = false;
@@ -272,7 +343,7 @@ buyForm.onsubmit = async (e) => {
   $('#buyErr').textContent = '';
   const body = { what: $('#wWhat').value.trim(), category: picked($('#wCats')), minPrice: $('#wMin').value || 0, maxPrice: $('#wMax').value };
   lastFound = {};
-  $('#fLive').hidden = false; $('#fOut').hidden = true;
+  $('#fLive').hidden = false; $('#fOut').hidden = true; $('#fDot').hidden = false;
   $('#fSub').textContent = `Through everything for sale in ${meta.countries[me.country].name}.`;
   location.hash = 'found';
   try {
@@ -288,15 +359,15 @@ buyForm.onsubmit = async (e) => {
   }
 };
 function showFound(out) {
-  $('#fLive').hidden = true;
+  $('#fLive').hidden = true; $('#fDot').hidden = true;
   const o = $('#fOut'); o.hidden = false;
   const n = out.found.length, w = out.want;
   const range = `${money(w.minPrice)} to ${money(w.maxPrice)}`;
   o.innerHTML = n
     ? `<h2>Found ${n === 1 ? 'one' : n} for you</h2><p class="sub" style="margin-top:6px">${esc(w.what)}, ${range}. Tap to buy.</p><ul class="grid" id="fGrid"></ul>
        <p class="fine" style="margin-top:22px">Not it? Leave your card up and new ones come to you.</p><div class="pair"><button class="secondary" data-a="leave">Leave it</button><button class="secondary danger" data-a="delete">Delete</button></div>`
-    : `<div class="live miss" style="margin-top:0"><div class="ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><circle class="arc" cx="24" cy="24" r="21"/></svg></div><div><b>Nothing yet</b><span>${esc(w.what)}, ${range}</span></div></div>
-       <p class="sub" style="margin-top:18px">Leave your card up and you'll see it in My stuff the moment someone posts one. Or delete it.</p><div class="pair"><button class="secondary" data-a="leave">Leave it</button><button class="secondary danger" data-a="delete">Delete</button></div>`;
+    : `${dot('search', 'No matches yet', `${esc(w.what)}, ${range}`)}
+       <p class="sub" style="margin-top:14px;text-align:center">Leave your card up and you'll see it in My stuff the moment someone posts one. Or delete it.</p><div class="pair"><button class="secondary" data-a="leave">Leave it</button><button class="secondary danger" data-a="delete">Delete</button></div>`;
   if (n) fillGrid($('#fGrid', o), out.found.map((f) => f.listing));
   $('[data-a="leave"]', o).onclick = () => { toast('Your card stays up. New matches show in My stuff.'); location.hash = 'home'; };
   $('[data-a="delete"]', o).onclick = async () => { await api(`/api/wants/${w.id}`, { method: 'DELETE' }).catch(() => {}); toast('Deleted.'); location.hash = 'home'; };
@@ -321,7 +392,7 @@ async function openBrowse() {
   $('#bCount').textContent = items.length ? items.length + ' for sale' : '';
   const e = $('#bEmpty');
   e.hidden = items.length > 0;
-  e.innerHTML = `<b>Nothing here yet</b>${browseCat ? 'Nothing in this category' : 'Nothing for sale'} in ${esc(meta.countries[me.country].name)} right now. Homing only shows things in your country.`;
+  e.innerHTML = dot('sleep', 'Nothing for sale yet', `${browseCat ? 'Nothing in this category' : 'Nothing'} in ${esc(meta.countries[me.country].name)} right now. Homing only shows things in your country.`);
 }
 
 // ---------- item ----------
@@ -382,7 +453,9 @@ async function openItem(lid) {
 async function openPaid(lid) {
   const l = await api(`/api/listings/${lid}?userId=${me.id}`).catch(() => null);
   if (!l || !l.boughtByMe) { location.hash = 'home'; return; }
-  $('#paidSub').textContent = `${money(l.price, l.currency)} paid with PayPal to ${l.seller.name}.`;
+  $('#paidSub').textContent = `Paid with PayPal to ${l.seller.name}.`;
+  countUp($('#paidAmt'), l.price, l.currency);
+  haptic('success');
   $('#paidImg').src = l.photo; $('#paidTitle').textContent = l.title; $('#paidPrice').textContent = 'From ' + l.seller.name;
   rateForm($('#paidRate'), l, 'buyer', l.seller.name);
   show('paid');
@@ -415,13 +488,13 @@ async function openMe() {
   $('#mStats').innerHTML = `${esc(meta.countries[d.user.country].name)} · ${d.user.sold} sold · ${d.user.bought} bought${d.user.stars ? ` · ${STAR} ${d.user.stars}` : ''}`;
   $('#mSell').innerHTML = d.mine.length ? d.mine.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)}${l.status === 'sold' ? ' · sold to ' + esc(l.buyer.name) : ''}</small></a>
     <span class="act">${l.status === 'sold' ? (l.tracking ? `<a class="tag ok" href="#ship/${l.id}">Sent · ${esc(l.tracking.carrierName)}</a>` : `<a class="tag blue" href="#ship/${l.id}">Ship it</a>`) : `<span class="tag">For sale</span><button class="danger" data-del="${l.id}">Delete</button>`}</span></li>`).join('')
-    : '<li class="none">Nothing yet. <a href="#sell"><u>Sell something</u></a></li>';
+    : '<li class="none"><img class="dotmini" src="/img/dot-sleep.webp" alt="">Nothing yet. <a href="#sell"><u>Sell something</u></a></li>';
   $('#mLook').innerHTML = d.looking.length ? d.looking.map((w) => `<li>${SEARCH}<span class="t"><b>${esc(w.what)}</b><small>${money(w.minPrice)} to ${money(w.maxPrice)} · ${esc(w.category)}</small>${w.found.length ? `<span class="found">${w.found.map((f) => `<a href="#item/${f.listing.id}"><img src="${esc(f.listing.photo)}" alt="${esc(f.listing.title)}"></a>`).join('')}</span>` : ''}</span>
     <span class="act">${w.found.length ? `<span class="tag blue">${w.found.length} found</span>` : '<span class="tag">Looking</span>'}<button class="danger" data-delw="${w.id}">Delete</button></span></li>`).join('')
-    : '<li class="none">Nothing yet. <a href="#buy"><u>Say what you want</u></a></li>';
+    : '<li class="none"><img class="dotmini" src="/img/dot-search.webp" alt="">Nothing yet. <a href="#buy"><u>Say what you want</u></a></li>';
   $('#mBought').innerHTML = d.bought.length ? d.bought.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)} · from ${esc(l.seller.name)}${l.tracking ? ` · on its way, ${esc(l.tracking.carrierName)} ${esc(l.tracking.number)}` : ''}</small></a>
     <span class="act">${l.reviews?.buyer ? '<span class="tag ok">Done</span>' : `<a class="tag blue" href="#item/${l.id}">Rate ${esc(l.seller.name)}</a>`}</span></li>`).join('')
-    : '<li class="none">Nothing yet.</li>';
+    : '<li class="none"><img class="dotmini" src="/img/dot-hello.webp" alt="">Nothing yet.</li>';
   $$('[data-del]').forEach((b) => (b.onclick = async () => { await api(`/api/listings/${b.dataset.del}`, { method: 'DELETE' }); toast('Deleted.'); openMe(); }));
   $$('[data-delw]').forEach((b) => (b.onclick = async () => { await api(`/api/wants/${b.dataset.delw}`, { method: 'DELETE' }); toast('Deleted.'); openMe(); }));
   show('me');
@@ -440,7 +513,7 @@ async function openBoard() {
   $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${u.id}"><span class="n">${i + 1 + top.length}</span>${av(u.name)}
     <span class="t"><b>${esc(u.name)}</b><small>${u.sold} sold · ${u.bought} bought</small></span>
     <span class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</span>${CHEV}</a></li>`).join('')
-    : '<li style="display:block;color:var(--faint)">No deals in your country yet.</li>';
+    : `<li style="display:block;border:0">${dot('hello', 'No deals yet', 'The first deal in your country puts you on top.')}</li>`;
 }
 
 // ---------- start ----------
@@ -482,13 +555,28 @@ async function openUser(uid) {
   const stars = (n) => [1, 2, 3, 4, 5].map((k) => STAR.replace('class="star"', k <= n ? '' : 'class="off"')).join('');
   $('#uRevs').innerHTML = u.feed.length ? u.feed.map((r) => `<li><div class="r-top">${av(r.from)}<b>${esc(r.from)}</b><span class="r-stars">${stars(r.stars)}</span><time>${ago(r.at)}</time></div>
     ${r.text ? `<p>${esc(r.text)}</p>` : ''}<span class="deal">${r.role === 'bought' ? esc(r.from) + ' bought' : esc(u.name) + ' bought'} ${esc(r.item)} · ${money(r.price, r.currency)} via PayPal</span></li>`).join('')
-    : '<li style="color:var(--faint)">No reviews yet.</li>';
+    : `<li style="border:0">${dot('sleep', 'No reviews yet', 'Reviews only come from real, paid deals.', 'sm')}</li>`;
   show('user');
 }
 
 // ---------- buy sheet ----------
-function openSheet() { $('#sheet').hidden = false; document.body.classList.add('locked'); requestAnimationFrame(() => $('#sheet').classList.add('open')); }
-function closeSheet() { $('#sheet').classList.remove('open'); document.body.classList.remove('locked'); setTimeout(() => ($('#sheet').hidden = true), 280); }
+// "Buy now" grows into the sheet (a shared view transition), and shrinks back into the button
+const canMorph = () => !!document.startViewTransition && !REDUCE;
+function openSheet() {
+  haptic('medium');
+  const sh = $('#sheet'), panel = $('.sheet-panel', sh), btn = $('#iBarBtn');
+  if (!canMorph()) { sh.hidden = false; document.body.classList.add('locked'); requestAnimationFrame(() => sh.classList.add('open')); return; }
+  btn.style.viewTransitionName = 'buy'; document.documentElement.dataset.dir = 'sheet';
+  const t = document.startViewTransition(() => { btn.style.viewTransitionName = ''; panel.style.viewTransitionName = 'buy'; sh.classList.add('instant'); sh.hidden = false; sh.classList.add('open'); document.body.classList.add('locked'); });
+  t.finished.finally(() => { panel.style.viewTransitionName = ''; sh.classList.remove('instant'); });
+}
+function closeSheet() {
+  const sh = $('#sheet'), panel = $('.sheet-panel', sh), btn = $('#iBarBtn');
+  if (!canMorph() || !btn.offsetParent) { sh.classList.remove('open'); document.body.classList.remove('locked'); setTimeout(() => (sh.hidden = true), 280); return; }
+  panel.style.viewTransitionName = 'buy'; document.documentElement.dataset.dir = 'sheet';
+  const t = document.startViewTransition(() => { panel.style.viewTransitionName = ''; btn.style.viewTransitionName = 'buy'; sh.classList.add('instant'); sh.classList.remove('open'); sh.hidden = true; document.body.classList.remove('locked'); });
+  t.finished.finally(() => { btn.style.viewTransitionName = ''; sh.classList.remove('instant'); });
+}
 $('#sheetBg').onclick = closeSheet;
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 
@@ -513,7 +601,7 @@ async function watchSales() {
   $('#alHead').textContent = `Sold! ${fresh.title}`;
   $('#alSub').textContent = `${fresh.buyer.name} paid ${money(fresh.price, fresh.currency)} with PayPal`;
   a.hidden = false; requestAnimationFrame(() => a.classList.add('in'));
-  buzz(18);
+  haptic('success');
   clearTimeout(a._t); a._t = setTimeout(hideAlert, 12000);
   if ('Notification' in window && Notification.permission === 'granted') try { new Notification('Sold! ' + fresh.title, { body: `${fresh.buyer.name} paid with PayPal. Ship it.`, icon: fresh.photo }); } catch {}
 }
@@ -554,7 +642,7 @@ function drawTrack(lid, t) {
   $('#shNum').onkeydown = (e) => { if (e.key === 'Enter' && !$('#shSend').disabled) $('#shSend').click(); };
   $('#shSend').onclick = async () => {
     $('#shSend').disabled = true; $('#shSend').textContent = '…';
-    try { drawTrack(lid, await api(`/api/listings/${lid}/track`, { method: 'POST', json: { carrier: picked($('#shCar')), number: $('#shNum').value } })); buzz(12); }
+    try { drawTrack(lid, await api(`/api/listings/${lid}/track`, { method: 'POST', json: { carrier: picked($('#shCar')), number: $('#shNum').value } })); haptic('success'); }
     catch (e) { $('#shErr').textContent = e.message; $('#shSend').textContent = 'Add'; ok(); }
   };
 }
@@ -572,8 +660,9 @@ async function loadPosts(at) {
 }
 
 // ---------- feel: touch, typing, selecting ----------
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch {} };
-document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && e.target.closest('button,.big,.primary,.secondary,.chips button,.gcard,.ppbtn,.seg button')) buzz(6); }, { passive: true });
+// every press gets a light tick (chips tick on click); screen changes get a medium one in the router
+document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && e.target.closest('button:not(.chips button)')) haptic('light'); }, { passive: true });
+document.addEventListener('touchstart', () => {}, { passive: true }); // lets :active (the press squash) work on iOS
 // Enter jumps to the next field; the field you type in is never under the keyboard
 document.addEventListener('keydown', (e) => {
   const t = e.target;

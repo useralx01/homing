@@ -58,14 +58,18 @@ export function mountShelf(host, { onOpen, onFront } = {}) {
     slabs.forEach((m) => { ring.remove(m); m.children[0]?.material.map?.dispose(); m.children[0]?.material.dispose(); });
     slabs = [];
     items.forEach((it, i) => {
-      const slab = new THREE.Mesh(body, blue);
-      const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.42, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 0.55 });
+      // each slab stays invisible until its photo is in, then fades and springs into place (no grey placeholders)
+      const edge = blue.clone(); edge.transparent = true; edge.opacity = 0;
+      const slab = new THREE.Mesh(body, edge);
+      const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.42, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 0.55, transparent: true, opacity: 0 });
+      slab.userData.k = 0; slab.userData.ready = false; slab.userData.mats = [edge, mat];
       loader.load(it.photo, (t) => {
         t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
         const a = t.image.width / t.image.height, want = W / H;
         if (a > want) { t.repeat.set(want / a, 1); t.offset.set((1 - want / a) / 2, 0); }
         else { t.repeat.set(1, a / want); t.offset.set(0, (1 - a / want) / 2); }
-        mat.map = t; mat.needsUpdate = true; if (!running) draw();
+        mat.map = t; mat.needsUpdate = true; slab.userData.ready = true;
+        if (!running || reduce) { slab.userData.k = 1; slab.userData.mats.forEach((m) => { m.opacity = 1; m.transparent = false; m.needsUpdate = true; }); draw(); }
       });
       const f = new THREE.Mesh(face, mat); f.position.z = DEPTH / 2 + 0.016;
       slab.add(f);
@@ -136,6 +140,15 @@ export function mountShelf(host, { onOpen, onFront } = {}) {
       s.visible = Math.abs(o) < 2.6;
       s.position.set(sg * (a * 1.02 + Math.max(Math.abs(o) - 1, 0) * 0.42), H / 2, -a * 0.75 - Math.max(Math.abs(o) - 1, 0) * 0.5);
       s.rotation.y = -sg * a * 0.62;
+      const u = s.userData;
+      if (u.ready && u.k < 1) {
+        u.k = Math.min(1, u.k + dt * 2.6);
+        const e = 1 + 2.2 * Math.pow(u.k - 1, 3) + 1.2 * Math.pow(u.k - 1, 2); // ease out with a small overshoot
+        u.mats.forEach((m) => { m.opacity = Math.min(1, u.k * 1.6); });
+        s.scale.setScalar(0.82 + 0.18 * e); s.position.y += (1 - u.k) * -0.12;
+        if (u.k >= 1) u.mats.forEach((m) => { m.transparent = false; m.needsUpdate = true; });
+      }
+      if (!u.ready) s.visible = false;
     });
     const f = ((Math.round(pos) % slabs.length) + slabs.length) % slabs.length;
     if (f !== front && slabs.length) { front = f; onFront?.(items[f], f); }
