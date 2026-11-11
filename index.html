@@ -1,3 +1,14 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homing</title>
-<style>body{font:17px/1.6 Inter,system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#111}h1{color:#0b57d0}a{color:#0b57d0}</style></head>
-<body><h1>Homing</h1><p>Buy and sell near you, paid with PayPal. A PayPal AI Hackathon project.</p><p><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></p></body></html>
+<style>body{font:17px/1.6 Inter,system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#111;background:#fff}h1{color:#0b57d0}a{color:#0b57d0}</style></head>
+<body><h1>Homing</h1><p>Buy and sell near you, paid with PayPal. A PayPal AI Hackathon project.</p>
+<p id="m">Opening the live app…</p>
+<p><a href="https://github.com/useralx01/homing">Source code</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></p>
+<script>
+// The app runs on its own server; live.txt holds its current public address.
+fetch('live.txt?' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
+  var u = t.trim();
+  if (!/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(u)) throw 0;
+  document.getElementById('m').innerHTML = 'Opening the live app: <a href="' + u + '">' + u + '</a>';
+  location.replace(u + '/');
+}).catch(function () { document.getElementById('m').textContent = 'The live app is restarting. Try again in a minute.'; });
+</script></body></html>
