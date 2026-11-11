@@ -1,137 +1,93 @@
 [
   {
     "id": "w_mara",
+    "userId": "u_mara",
     "name": "Mara",
-    "said": "Looking for a game controller for my brother, white if possible, up to 40 euro. Please no stick drift, he's had that twice.",
-    "want": "White wireless game controller",
+    "country": "DE",
+    "what": "Desk lamp for reading",
+    "category": "Home & kitchen",
+    "minPrice": 0,
     "maxPrice": 40,
-    "city": "Stuttgart",
-    "careAbout": [
-      "no stick drift",
-      "white colour",
-      "charging cable included"
-    ],
-    "note": "It's a birthday present, so it should look clean."
-  },
-  {
-    "id": "w_jonas",
-    "name": "Jonas",
-    "said": "Need any wireless game controller cheap, color doesn't matter, max 35. Shipping is fine.",
-    "want": "Wireless game controller",
-    "maxPrice": 35,
-    "city": "Berlin",
-    "careAbout": [
-      "works properly",
-      "can be shipped"
-    ],
-    "note": "Color doesn't matter at all."
+    "status": "open",
+    "matches": [],
+    "at": 1794366000000
   },
   {
     "id": "w_kai",
+    "userId": "u_kai",
     "name": "Kai",
-    "said": "Need a second controller for my console so my friend can play too. Up to 45 euro, near Stuttgart, pickup is fine.",
-    "want": "Second game controller",
-    "maxPrice": 45,
-    "city": "Stuttgart",
-    "careAbout": [
-      "works with my console",
-      "pickup near Stuttgart"
-    ],
-    "note": "Just for couch co-op with a friend."
+    "country": "DE",
+    "what": "Lamp for my desk",
+    "category": "Home & kitchen",
+    "minPrice": 10,
+    "maxPrice": 30,
+    "status": "open",
+    "matches": [],
+    "at": 1794348000000
   },
   {
     "id": "w_nina",
+    "userId": "u_nina",
     "name": "Nina",
-    "said": "Looking for a white game controller but only up to 25 euro, I am a student.",
-    "want": "White game controller",
-    "maxPrice": 25,
-    "city": "Leipzig",
-    "careAbout": [
-      "white colour",
-      "max 25 euro"
-    ],
-    "note": "Student budget, sorry!"
-  },
-  {
-    "id": "w_lea",
-    "name": "Lea",
-    "said": "Searching a 35mm film camera for my first roll, an old manual one is perfect, max 150, must have a working light meter.",
-    "want": "35mm film camera",
-    "maxPrice": 150,
-    "city": "Munich",
-    "careAbout": [
-      "working light meter",
-      "lens included",
-      "no fungus in lens"
-    ],
-    "note": "First film camera, I'd love a quick tip on how to start."
+    "country": "DE",
+    "what": "Small lamp",
+    "category": "Home & kitchen",
+    "minPrice": 0,
+    "maxPrice": 15,
+    "status": "open",
+    "matches": [],
+    "at": 1794330000000
   },
   {
     "id": "w_tim",
+    "userId": "u_tim",
     "name": "Tim",
-    "said": "Want a road bike, frame size 56, under 400. Pickup in Stuttgart only.",
-    "want": "Road bike, frame size 56",
-    "maxPrice": 400,
-    "city": "Stuttgart",
-    "careAbout": [
-      "frame size 56",
-      "pickup in Stuttgart",
-      "no frame cracks"
-    ],
-    "note": "I can pick it up this weekend."
-  },
-  {
-    "id": "w_sofia",
-    "name": "Sofia",
-    "said": "I'm looking for a big building-brick spaceship set, complete, up to 120 euros. Box isn't important.",
-    "want": "Building-brick spaceship set",
-    "maxPrice": 120,
-    "city": "Hamburg",
-    "careAbout": [
-      "complete set",
-      "instructions included"
-    ],
-    "note": "Box isn't important."
+    "country": "DE",
+    "what": "Road bike, 56 frame",
+    "category": "Bikes & sport",
+    "minPrice": 100,
+    "maxPrice": 300,
+    "status": "open",
+    "matches": [],
+    "at": 1794312000000
   },
   {
     "id": "w_ben",
+    "userId": "u_ben",
     "name": "Ben",
-    "said": "Need wireless earbuds with noise cancelling, max 120. Must be original, not a fake, and battery should be ok.",
-    "want": "Noise-cancelling wireless earbuds",
-    "maxPrice": 120,
-    "city": "Cologne",
-    "careAbout": [
-      "original, not a fake",
-      "battery health ok",
-      "charging case included"
-    ],
-    "note": "Had a fake pair once, so I'm careful."
-  },
-  {
-    "id": "w_noah",
-    "name": "Noah",
-    "said": "Looking for a handheld game console with a dock, up to 220. Small scratches ok.",
-    "want": "Handheld game console with dock",
-    "maxPrice": 220,
-    "city": "Frankfurt",
-    "careAbout": [
-      "dock included",
-      "screen without cracks"
-    ],
-    "note": "Small scratches are fine."
+    "country": "DE",
+    "what": "Record player that works",
+    "category": "Electronics",
+    "minPrice": 0,
+    "maxPrice": 100,
+    "status": "open",
+    "matches": [],
+    "at": 1794294000000
   },
   {
     "id": "w_emma",
+    "userId": "u_emma",
     "name": "Emma",
-    "said": "Searching a mechanical keyboard, 75% layout, under 80, quiet switches please because I share an office.",
-    "want": "Mechanical keyboard, 75% layout",
-    "maxPrice": 80,
-    "city": "Stuttgart",
-    "careAbout": [
-      "quiet switches",
-      "75% layout",
-      "German or US layout stated"
-    ],
-    "note": "I share an office, so quiet matters most."
+    "country": "DE",
+    "what": "Small sofa, 2 seats",
+    "category": "Furniture",
+    "minPrice": 50,
+    "maxPrice": 200,
+    "status": "open",
+    "matches": [],
+    "at": 1794276000000
+  },
+  {
+    "id": "w_noah",
+    "userId": "u_noah",
+    "name": "Noah",
+    "country": "DE",
+    "what": "Mechanical keyboard",
+    "category": "Electronics",
+    "minPrice": 0,
+    "maxPrice": 60,
+    "status": "open",
+    "matches": [],
+    "at": 1794258000000
   }
 ]

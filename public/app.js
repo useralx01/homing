@@ -1,310 +1,424 @@
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const money = (v) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(v || 0));
-const hue = (s) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 360;
-const avatar = (el, name) => { el.textContent = (name || '?')[0].toUpperCase(); el.style.setProperty('--c', `hsl(${hue(name)} 38% 38%)`); };
-const ppLogo = '<svg viewBox="0 0 101 32" aria-hidden="true"><path fill="#003087" d="M12.2 4.7H4.4c-.5 0-1 .4-1.1.9L.2 25.6c0 .4.3.7.7.7h3.7c.5 0 1-.4 1.1-.9l.8-5.4c.1-.5.5-.9 1.1-.9h2.5c5.1 0 8.1-2.5 8.9-7.4.3-2.2 0-3.9-1-5.1-1.1-1.3-3.1-2-5.8-2zm.9 7.3c-.4 2.8-2.6 2.8-4.6 2.8H7.3l.8-5.2c0-.3.3-.5.7-.5h.5c1.4 0 2.7 0 3.4.8.4.5.5 1.2.4 2.1z"/><path fill="#009cde" d="M35.2 11.9h-3.7c-.3 0-.6.2-.7.5l-.2 1-.3-.4c-.8-1.2-2.6-1.6-4.4-1.6-4.1 0-7.6 3.1-8.3 7.5-.4 2.2.1 4.3 1.4 5.7 1.1 1.3 2.8 1.9 4.7 1.9 3.3 0 5.2-2.2 5.2-2.2l-.2 1c0 .4.3.7.7.7h3.4c.5 0 1-.4 1.1-.9l2-12.7c0-.3-.3-.5-.7-.5zm-5.2 7.2c-.4 2.1-2 3.6-4.2 3.6-1.1 0-1.9-.3-2.5-1-.6-.7-.8-1.6-.6-2.7.3-2.1 2.1-3.6 4.2-3.6 1 0 1.9.4 2.4 1 .6.7.8 1.7.7 2.7z"/><text x="40" y="23" font-family="Inter,Arial" font-weight="700" font-size="17" fill="#003087">PayPal</text></svg>';
+// Homing: sign in, then Sell / Buy / Browse. Plain hash routes so the phone's back button works.
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const STAR = '<svg class="star" viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>';
+const PP = '<span>Pay <b class="amt"></b> with</span><b style="font-style:italic;font-weight:800;color:#003087">Pay</b><b style="font-style:italic;font-weight:800;color:#0070e0;margin-left:-8px">Pal</b>';
 
-// numbers count up instead of just appearing
-const countUp = (el, to, { suffix = '', ms = 900, delay = 0 } = {}) => {
-  const start = performance.now() + delay;
-  const tick = (t) => {
-    const p = Math.min(1, Math.max(0, (t - start) / ms)), e = 1 - Math.pow(1 - p, 3);
-    el.textContent = Math.round(to * e) + suffix;
-    if (p < 1) requestAnimationFrame(tick);
-  };
-  el.textContent = 0 + suffix; requestAnimationFrame(tick);
-};
+let me = null, meta = null;
+try { me = JSON.parse(localStorage.getItem('homing.user') || 'null'); } catch {}
 
-const api = async (url, opts) => {
-  const r = await fetch(url, opts);
+const api = async (url, opts = {}) => {
+  const headers = { ...(opts.headers || {}) };
+  if (me) headers['x-user'] = me.id;
+  if (opts.json) { headers['content-type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
+  const r = await fetch(url, { ...opts, headers });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || r.statusText);
+  if (!r.ok) throw new Error(j.error || 'Something went wrong.');
   return j;
 };
+const cur = () => meta.countries[me?.country]?.currency || 'EUR';
+const money = (v, c = cur()) => new Intl.NumberFormat('en-IE', { style: 'currency', currency: c, maximumFractionDigits: Number(v) % 1 ? 2 : 0 }).format(v);
+const sym = () => money(0).replace(/[\d.,\s]/g, '');
+const avatar = (el, name) => { el.textContent = (name || '?').trim()[0].toUpperCase(); };
+const names = (list) => list.length < 2 ? list.join('') : list.slice(0, -1).join(', ') + ' and ' + list.at(-1);
+let toastT;
+const toast = (msg) => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 3200); };
 
-// ---------- views ----------
-function show(view) {
-  $$('.view').forEach((v) => (v.hidden = v.id !== 'view-' + view));
-  $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === view || (view === 'inbox' && b.dataset.view === 'people')));
-  if (view === 'people') loadPeople();
-  window.scrollTo({ top: 0 });
-}
-document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-view]');
-  if (!t) return;
-  e.preventDefault();
-  history.pushState(null, '', t.dataset.view === 'sell' ? '/' : '/?view=' + t.dataset.view);
-  show(t.dataset.view);
-});
-window.addEventListener('popstate', route);
+// ---------- routing ----------
+const show = (name) => {
+  $$('.screen').forEach((s) => (s.hidden = s.dataset.screen !== name));
+  $('#top').hidden = name === 'signin';
+  $('#back').classList.toggle('off', name === 'home');
+  window.scrollTo(0, 0);
+};
+let depth = 0;
+window.addEventListener('hashchange', () => { depth++; route(); });
+$('#back').onclick = () => (depth > 0 ? history.back() : (location.hash = 'home'));
 
-function route() {
-  const q = new URLSearchParams(location.search);
-  if (q.get('inbox')) return openInbox(q.get('inbox'), q);
-  show(q.get('view') || 'sell');
-}
-
-// ---------- health ----------
-api('/api/health').then((h) => {
-  $('#env').textContent = h.env === 'sandbox' ? 'PayPal sandbox · test money' : '';
-  if (!h.ai || !h.paypal) $('#sellErr').textContent = `Setup missing: ${!h.ai ? 'Gemini key' : ''}${!h.ai && !h.paypal ? ' and ' : ''}${!h.paypal ? 'PayPal keys' : ''} in .env`;
-}).catch(() => {});
-
-// ---------- sell ----------
-const drop = $('#drop'), photo = $('#photo'), go = $('#go');
-const ready = () => (go.disabled = !(photo.files[0] && $('#line').value.trim()));
-function setPhoto(f) {
-  if (!f) return;
-  const dt = new DataTransfer(); dt.items.add(f); photo.files = dt.files;
-  $('#preview').src = URL.createObjectURL(f);
-  drop.classList.add('has');
-  ready();
-}
-photo.addEventListener('change', () => setPhoto(photo.files[0]));
-$('#line').addEventListener('input', ready);
-['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
-['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
-drop.addEventListener('drop', (e) => setPhoto(e.dataTransfer.files[0]));
-
-$('#sellForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (go.disabled) return;
-  $('#sellErr').textContent = '';
-  go.disabled = true; go.classList.add('busy'); go.textContent = 'Looking at your photo…';
-  const res = $('#result'), stage = $('#stage');
-  res.hidden = false;
-  $('#itemImg').src = $('#preview').src;
-  $('#itemTitle').textContent = $('#line').value;
-  $('#itemPrice').textContent = '';
-  $('#matches').innerHTML = '';
-  $('#wires').innerHTML = '';
-  $('#status').textContent = '';
-  stage.classList.add('scanning');
-  startSteps();
-  showGhosts();
-  res.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  try {
-    const out = await api('/api/sell', { method: 'POST', body: new FormData(e.target) });
-    await finishSteps();
-    stage.classList.remove('scanning');
-    $('#itemTitle').textContent = out.offer.item.title;
-    $('#itemPrice').textContent = money(out.offer.item.price);
-    await clearGhosts(out.matches.map((m) => m.want.id));
-    renderMatches(out);
-  } catch (err) {
-    stopSteps();
-    stage.classList.remove('scanning');
-    $('#matches').innerHTML = '';
-    $('#status').textContent = '';
-    $('#sellErr').textContent = err.message;
-  } finally {
-    go.classList.remove('busy'); go.textContent = 'Find the people looking'; ready();
+async function route() {
+  if (!me) return show('signin');
+  const [name, arg] = location.hash.slice(1).split('/');
+  stopWaiting();
+  refreshBadge();
+  switch (name) {
+    case 'sell': return show('sell');
+    case 'posted': return pending ? show('posted') : (location.hash = 'sell');
+    case 'buy': return openBuy();
+    case 'found': return lastFound ? show('found') : (location.hash = 'buy');
+    case 'browse': return openBrowse();
+    case 'item': return openItem(arg);
+    case 'paid': return openPaid(arg);
+    case 'me': return openMe();
+    case 'board': return openBoard();
+    default: return openHome();
   }
-});
+}
 
-// While the AI works, everyone who is looking shows as a faint row and a light passes over them.
-async function showGhosts() {
+// ---------- sign in ----------
+$('#signinForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('#signinErr').textContent = '';
   try {
-    const ws = (await api('/api/wants')).filter((w) => !w.boughtOffer);
-    $('#nPeople').textContent = ws.length + ' people';
-    const list = $('#matches');
-    if (!$('#stage').classList.contains('scanning')) return;
-    list.innerHTML = '';
-    ws.slice(0, 7).forEach((w, i) => {
-      const li = document.createElement('li');
-      li.className = 'ghost'; li.dataset.id = w.id;
-      li.style.animationDelay = i * 70 + 'ms';
-      li.innerHTML = '<span class="av"></span><span class="g-body"><b></b><span></span></span>';
-      avatar($('.av', li), w.name);
-      $('b', li).textContent = w.name; $('.g-body span', li).textContent = w.want;
-      list.append(li);
-    });
-    list.classList.add('scan');
+    me = await api('/api/signin', { method: 'POST', json: Object.fromEntries(new FormData(e.target)) });
+    localStorage.setItem('homing.user', JSON.stringify(me));
+    setupForUser();
+    location.hash = 'home'; route();
+  } catch (err) { $('#signinErr').textContent = err.message; }
+};
+$('#signout').onclick = () => { localStorage.removeItem('homing.user'); me = null; location.hash = ''; show('signin'); };
+
+function setupForUser() {
+  avatar($('#meAv'), me.name);
+  avatar($('#wAv'), me.name);
+  $('#wName').textContent = me.name;
+  const cn = meta.countries[me.country].name;
+  $('#wCountry').textContent = cn + ' only';
+  $('#bCountry').textContent = cn + ' only';
+  $$('.cur').forEach((c) => { c.textContent = sym(); c.nextElementSibling.style.paddingLeft = 18 + sym().length * 11 + 'px'; });
+}
+
+// ---------- home ----------
+function openHome() {
+  $('#hello').textContent = `Hi ${me.name}`;
+  show('home');
+}
+async function refreshBadge() {
+  if (!me) return;
+  try {
+    const d = await api('/api/me');
+    const n = todo(d);
+    $('#homeCount').hidden = !n; $('#homeCount').textContent = n;
+    $('#meDot').hidden = !n;
   } catch {}
 }
-async function clearGhosts(keep) {
-  const list = $('#matches'), ghosts = $$('.ghost', list);
-  list.classList.remove('scan');
-  if (!ghosts.length) return;
-  ghosts.forEach((g) => g.classList.add(keep.includes(g.dataset.id) ? 'hit' : 'miss'));
-  await new Promise((r) => setTimeout(r, 650));
-}
-let stepTimers = [];
-function setStep(n) {
-  $$('#steps li').forEach((li) => { const s = +li.dataset.s; li.className = s < n ? 'done' : s === n ? 'now' : ''; });
-  $('#stepBar').style.width = Math.min(100, (n + .5) * 25) + '%';
-}
-function startSteps() {
-  stopSteps();
-  $('#steps').hidden = false; $('#steps').classList.toggle('finished', false);
-  setStep(0);
-  stepTimers = [setTimeout(() => setStep(1), 1600), setTimeout(() => setStep(2), 4200)];
-}
-function stopSteps() { stepTimers.forEach(clearTimeout); $('#steps').hidden = true; }
-async function finishSteps() {
-  stepTimers.forEach(clearTimeout);
-  setStep(3);
-  await new Promise((r) => setTimeout(r, 450));
-  $$('#steps li').forEach((li) => (li.className = 'done'));
-  $('#stepBar').style.width = '100%';
-  $('#steps').classList.add('finished');
-}
+// things waiting for me: items found for my wants, and finished deals I haven't reviewed
+const todo = (d) => d.looking.reduce((a, w) => a + w.found.length, 0)
+  + d.bought.filter((l) => !l.reviews?.buyer).length
+  + d.mine.filter((l) => l.status === 'sold' && !l.reviews?.seller).length;
 
-function renderMatches(out) {
-  $('#matches').innerHTML = '';
-  const list = $('#matches');
-  if (!out.matches.length) {
-    list.innerHTML = '<li class="empty-note">Nobody is looking for this right now. It stays ready, and anyone who starts looking for it gets it.</li>';
-    $('#status').textContent = '';
-    return;
+// ---------- chips ----------
+function chips(box, { all = false, onPick } = {}) {
+  box.innerHTML = '';
+  const opts = (all ? [''] : []).concat(meta.categories);
+  for (const c of opts) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.v = c;
+    b.textContent = c || 'All';
+    b.setAttribute('aria-checked', String(all && !c));
+    b.onclick = () => { $$('button', box).forEach((x) => x.setAttribute('aria-checked', String(x === b))); onPick?.(c); };
+    box.append(b);
   }
-  out.matches.forEach((m, i) => {
-    const li = $('#tplMatch').content.firstElementChild.cloneNode(true);
-    avatar($('.av', li), m.want.name);
-    $('.m-name', li).textContent = `${m.want.name} · ${m.want.city || ''}`.replace(/ · $/, '');
-    $('.m-why', li).textContent = m.why;
-    $('.m-msg', li).textContent = m.message;
-    li.style.animationDelay = 250 + i * 220 + 'ms';
-    $('.meter i', li).style.setProperty('--v', m.score + '%');
-    $('.meter i', li).style.transitionDelay = 450 + i * 220 + 'ms';
-    countUp($('.m-score', li), m.score, { suffix: '% fit', delay: 450 + i * 220 });
-    li.addEventListener('click', () => { history.pushState(null, '', '/?inbox=' + m.want.id); openInbox(m.want.id); });
-    li.style.cursor = 'pointer';
-    list.append(li);
-  });
-  requestAnimationFrame(() => { drawWires(out.matches.length); requestAnimationFrame(() => list.classList.add('lit')); });
-  const secs = (out.ms / 1000).toFixed(1), n = out.matches.length;
-  $('#status').innerHTML = `<span class="chip ok">Sent</span> to <b><span id="nSent">0</span> ${n === 1 ? 'person' : 'people'}</b> in ${secs}s, ${n === 1 ? 'with' : 'each with'} a PayPal button. First to pay gets it.`;
-  countUp($('#nSent'), n, { ms: 600, delay: 300 });
-  pollSold(out.offer.id);
 }
+const picked = (box) => $('button[aria-checked="true"]', box)?.dataset.v || '';
 
-function drawWires(n) {
-  const svg = $('#wires'), stage = $('#stage');
-  if (getComputedStyle(svg).display === 'none') return;
-  const sb = stage.getBoundingClientRect(), ib = $('.item img').getBoundingClientRect();
-  const x0 = ib.right - sb.left, y0 = ib.top - sb.top + ib.height / 2;
-  svg.setAttribute('viewBox', `0 0 ${sb.width} ${sb.height}`);
-  svg.innerHTML = '';
-  $$('.match .av').forEach((av, i) => {
-    const b = av.getBoundingClientRect();
-    const x1 = b.left - sb.left - 10, y1 = b.top - sb.top + b.height / 2;
-    const dx = (x1 - x0) * 0.5;
-    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', `M${x0},${y0} C${x0 + dx},${y0} ${x1 - dx},${y1} ${x1},${y1}`);
-    svg.append(p);
-    const len = p.getTotalLength();
-    p.style.setProperty('--len', len);
-    p.style.animationDelay = 150 + i * 220 + 'ms';
-    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    c.setAttribute('cx', x1); c.setAttribute('cy', y1); c.setAttribute('r', 3);
-    c.style.animationDelay = 900 + i * 220 + 'ms';
-    svg.append(c);
-    const pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    pulse.setAttribute('r', 3.2); pulse.setAttribute('class', 'pulse');
-    pulse.innerHTML = `<animateMotion dur="2.4s" begin="${1.2 + i * .22}s" repeatCount="indefinite" path="${p.getAttribute('d')}" keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines=".65 0 .35 1"/>`;
-    svg.append(pulse);
-  });
+// ---------- sell ----------
+const sellForm = $('#sellForm');
+let shotFile = null, shotUrl = '';
+$('#photo').onchange = (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  shotFile = f;
+  if (shotUrl) URL.revokeObjectURL(shotUrl);
+  shotUrl = URL.createObjectURL(f);
+  $('#shotImg').src = shotUrl;
+  $('#shot').classList.add('has');
+  checkSell();
+};
+function checkSell() {
+  const miss = [];
+  if (!shotFile) miss.push('a photo');
+  if ($('#sTitle').value.trim().length < 3) miss.push('what it is');
+  if (!picked($('#sCats'))) miss.push('a category');
+  if (!(Number($('#sPrice').value) >= 1)) miss.push('a price');
+  const d = $('#sDesc').value.trim().length;
+  if (d < 30) miss.push('the description');
+  $('#sDescHint').textContent = d < 30 ? `${30 - d} more characters. Condition, flaws, what comes with it.` : 'Good. Buyers will read this before they pay.';
+  $('#sDescHint').classList.toggle('ok', d >= 30);
+  $('#post').disabled = miss.length > 0;
+  $('#sellNeed').textContent = miss.length ? 'Still needs ' + names(miss) + '.' : '';
 }
-window.addEventListener('resize', () => { if (!$('#result').hidden && $$('.match').length) drawWires(); });
+sellForm.addEventListener('input', checkSell);
 
-let soldTimer;
-function pollSold(offerId) {
-  clearInterval(soldTimer);
-  soldTimer = setInterval(async () => {
-    try {
-      const o = await api('/api/offers/' + offerId);
-      if (o.soldTo) {
-        clearInterval(soldTimer);
-        const who = o.deliveries.find((d) => d.wantId === o.soldTo)?.name || 'Someone';
-        $('#status').innerHTML = `<span class="chip ok">Sold</span> <b>to ${who}</b> · ${money(o.capture?.amount?.value || o.item.price)} paid with PayPal. Everyone else was told it's gone.`;
-        $$('.match').forEach((m) => m.classList.toggle('won', $('.m-name', m).textContent.startsWith(who)));
-      }
-    } catch {}
-  }, 3000);
+let pending = null, waitT = null, pollT = null;
+function stopWaiting() {
+  if (location.hash.startsWith('#posted')) return;
+  clearInterval(waitT); clearInterval(pollT); waitT = pollT = null;
 }
-
-// ---------- seek ----------
-$('#seekForm').addEventListener('submit', async (e) => {
+sellForm.onsubmit = async (e) => {
   e.preventDefault();
-  const btn = $('button', e.target);
-  $('#seekErr').textContent = '';
-  btn.disabled = true; btn.textContent = 'Understanding what you need…';
+  if ($('#post').disabled) return;
+  $('#sellErr').textContent = '';
+  const fd = new FormData();
+  fd.append('photo', shotFile);
+  fd.append('title', $('#sTitle').value.trim());
+  fd.append('category', picked($('#sCats')));
+  fd.append('price', $('#sPrice').value);
+  fd.append('description', $('#sDesc').value.trim());
+  pending = { title: $('#sTitle').value.trim(), price: Number($('#sPrice').value) };
+  $('#pImg').src = shotUrl; $('#pTitle').textContent = pending.title; $('#pPrice').textContent = money(pending.price);
+  const live = $('#pLive');
+  live.className = 'live'; $('.ring', live).className = 'ring spin';
+  $('#pHead').textContent = 'Checking your photo'; $('#pSub').textContent = 'Making sure it shows what you wrote.';
+  $('#pOutcome').hidden = true; $('#pOutcome').innerHTML = '';
+  location.hash = 'posted';
+  const step = setTimeout(() => { $('#pHead').textContent = 'Finding buyers'; $('#pSub').textContent = `Everyone in ${meta.countries[me.country].name} looking for this.`; }, 1700);
   try {
-    const w = await api('/api/wants', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
-    e.target.reset();
-    history.pushState(null, '', '/?inbox=' + w.id);
-    openInbox(w.id);
-  } catch (err) { $('#seekErr').textContent = err.message; }
-  finally { btn.disabled = false; btn.textContent = 'Start looking'; }
-});
+    const out = await api('/api/sell', { method: 'POST', body: fd });
+    clearTimeout(step);
+    pending.id = out.listing.id;
+    resetSell();
+    if (out.sentTo.length) waitForBuyer(out);
+    else noBuyer(out.listing.id, 'Nobody is looking for this right now.');
+  } catch (err) {
+    clearTimeout(step);
+    pending = null;
+    location.hash = 'sell';
+    $('#sellErr').textContent = err.message;
+  }
+};
+function resetSell() {
+  sellForm.reset(); shotFile = null;
+  $('#shot').classList.remove('has'); $('#shotImg').removeAttribute('src');
+  $$('#sCats button').forEach((b) => b.setAttribute('aria-checked', 'false'));
+  checkSell();
+}
+const WAIT_S = 45;
+function waitForBuyer(out) {
+  const live = $('#pLive'), who = out.sentTo.map((s) => s.name);
+  $('.ring', live).className = 'ring';
+  $('#pHead').textContent = `Sent to ${names(who)}`;
+  let left = WAIT_S;
+  const tick = () => {
+    $('#pSub').textContent = `${who.length === 1 ? 'They are' : 'They are all'} looking for this. Waiting for a buyer, ${left}s`;
+    $('#pArc').style.strokeDashoffset = String(132 * (left / WAIT_S));
+  };
+  $('#pArc').style.transition = 'none'; $('#pArc').style.strokeDashoffset = '132';
+  requestAnimationFrame(() => { $('#pArc').style.transition = ''; tick(); });
+  clearInterval(waitT); clearInterval(pollT);
+  waitT = setInterval(() => { left--; tick(); if (left <= 0) { clearInterval(waitT); clearInterval(pollT); noBuyer(out.listing.id, `${names(who)} didn't buy yet.`); } }, 1000);
+  pollT = setInterval(async () => {
+    try {
+      const l = await api(`/api/listings/${out.listing.id}?userId=${me.id}`);
+      if (l.status === 'sold') { clearInterval(waitT); clearInterval(pollT); sold(l); }
+    } catch {}
+  }, 2000);
+}
+function sold(l) {
+  const live = $('#pLive');
+  live.className = 'live done';
+  $('#pArc').style.strokeDashoffset = '0';
+  $('#pHead').textContent = `Sold to ${l.buyer.name}`;
+  $('#pSub').textContent = `${money(l.price, l.currency)} paid with PayPal.`;
+  const o = $('#pOutcome');
+  o.hidden = false;
+  o.innerHTML = '<div class="rate"></div><a class="secondary" href="#home" style="margin-top:18px">Done</a>';
+  rateForm($('.rate', o), l, 'seller', l.buyer.name);
+}
+function noBuyer(lid, why) {
+  const live = $('#pLive');
+  live.className = 'live miss'; $('.ring', live).className = 'ring';
+  $('#pHead').textContent = 'No buyer yet';
+  $('#pSub').textContent = why;
+  const o = $('#pOutcome');
+  o.hidden = false;
+  o.innerHTML = `<p class="sub">Leave it up and anyone in ${esc(meta.countries[me.country].name)} can find it, or take it down.</p><div class="pair"><button class="secondary" data-a="leave">Leave it</button><button class="secondary danger" data-a="delete">Delete</button></div>`;
+  $('[data-a="leave"]', o).onclick = () => { pending = null; toast('It stays up. People can find it in Browse.'); location.hash = 'home'; };
+  $('[data-a="delete"]', o).onclick = async () => { await api(`/api/listings/${lid}`, { method: 'DELETE' }).catch(() => {}); pending = null; toast('Deleted.'); location.hash = 'home'; };
+}
 
-// ---------- people ----------
-async function loadPeople() {
-  const ws = await api('/api/wants');
-  const ul = $('#people');
+// ---------- buy ----------
+const buyForm = $('#buyForm');
+function openBuy() { show('buy'); }
+function checkBuy() {
+  const max = Number($('#wMax').value), min = Number($('#wMin').value) || 0;
+  $('#find').disabled = !($('#wWhat').value.trim().length >= 3 && picked($('#wCats')) && max >= 1 && max >= min);
+}
+buyForm.addEventListener('input', checkBuy);
+let lastFound = null;
+buyForm.onsubmit = async (e) => {
+  e.preventDefault();
+  if ($('#find').disabled) return;
+  $('#buyErr').textContent = '';
+  const body = { what: $('#wWhat').value.trim(), category: picked($('#wCats')), minPrice: $('#wMin').value || 0, maxPrice: $('#wMax').value };
+  lastFound = {};
+  $('#fLive').hidden = false; $('#fOut').hidden = true;
+  $('#fSub').textContent = `Through everything for sale in ${meta.countries[me.country].name}.`;
+  location.hash = 'found';
+  try {
+    const out = await api('/api/wants', { method: 'POST', json: body });
+    lastFound = out;
+    await wait(400);
+    buyForm.reset(); $$('#wCats button').forEach((b) => b.setAttribute('aria-checked', 'false')); checkBuy();
+    showFound(out);
+  } catch (err) {
+    lastFound = null;
+    location.hash = 'buy';
+    $('#buyErr').textContent = err.message;
+  }
+};
+function showFound(out) {
+  $('#fLive').hidden = true;
+  const o = $('#fOut'); o.hidden = false;
+  const n = out.found.length, w = out.want;
+  const range = `${money(w.minPrice)} to ${money(w.maxPrice)}`;
+  o.innerHTML = n
+    ? `<h2>Found ${n === 1 ? 'one' : n} for you</h2><p class="sub" style="margin-top:6px">${esc(w.what)}, ${range}. Tap to buy.</p><ul class="grid" id="fGrid"></ul>
+       <p class="fine" style="margin-top:22px">Not it? Leave your card up and new ones come to you.</p><div class="pair"><button class="secondary" data-a="leave">Leave it</button><button class="secondary danger" data-a="delete">Delete</button></div>`
+    : `<div class="live miss" style="margin-top:0"><div class="ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><circle class="arc" cx="24" cy="24" r="21"/></svg></div><div><b>Nothing yet</b><span>${esc(w.what)}, ${range}</span></div></div>
+       <p class="sub" style="margin-top:18px">Leave your card up and you'll see it in My stuff the moment someone posts one. Or delete it.</p><div class="pair"><button class="secondary" data-a="leave">Leave it</button><button class="secondary danger" data-a="delete">Delete</button></div>`;
+  if (n) fillGrid($('#fGrid', o), out.found.map((f) => f.listing));
+  $('[data-a="leave"]', o).onclick = () => { toast('Your card stays up. New matches show in My stuff.'); location.hash = 'home'; };
+  $('[data-a="delete"]', o).onclick = async () => { await api(`/api/wants/${w.id}`, { method: 'DELETE' }).catch(() => {}); toast('Deleted.'); location.hash = 'home'; };
+}
+
+// ---------- browse ----------
+function fillGrid(ul, items) {
   ul.innerHTML = '';
-  for (const w of ws) {
+  items.forEach((l, i) => {
     const li = document.createElement('li');
-    li.innerHTML = `<a href="/?inbox=${w.id}"><span class="av"></span><span><div class="p-want"></div><div class="p-meta"></div></span><span class="p-badge"></span></a>`;
-    avatar($('.av', li), w.name);
-    $('.p-want', li).textContent = w.want;
-    $('.p-meta', li).textContent = [w.name, w.city, w.maxPrice ? 'up to ' + money(w.maxPrice) : ''].filter(Boolean).join(' · ');
-    $('.p-badge', li).innerHTML = w.boughtOffer ? '<span class="chip ok">Bought</span>' : '<span class="chip live">Looking</span>';
-    li.style.animationDelay = ws.indexOf(w) * 45 + 'ms';
-    $('a', li).addEventListener('click', (e) => { e.preventDefault(); history.pushState(null, '', '/?inbox=' + w.id); openInbox(w.id); });
+    li.innerHTML = `<a class="gcard" href="#item/${esc(l.id)}" style="animation-delay:${Math.min(i, 8) * 40}ms"><img alt="" loading="lazy" src="${esc(l.photo)}"><span class="glass"><b>${esc(l.title)}</b><span>${money(l.price, l.currency)}</span></span></a>`;
     ul.append(li);
-  }
+  });
+}
+let browseCat = '';
+async function openBrowse() {
+  show('browse');
+  const items = await api(`/api/listings?country=${me.country}&category=${encodeURIComponent(browseCat)}`).catch(() => []);
+  fillGrid($('#grid'), items);
+  const e = $('#bEmpty');
+  e.hidden = items.length > 0;
+  e.innerHTML = `<b>Nothing here yet</b>${browseCat ? 'Nothing in this category' : 'Nothing for sale'} in ${esc(meta.countries[me.country].name)} right now. Homing only shows things in your country.`;
 }
 
-// ---------- inbox ----------
-async function openInbox(wantId, q = new URLSearchParams(location.search)) {
-  show('inbox');
-  const { want, offers } = await api('/api/inbox/' + wantId);
-  $('#inboxName').textContent = want.name + "'s inbox";
-  $('#inboxWant').textContent = `Looking for ${want.want.charAt(0).toLowerCase() + want.want.slice(1)}${want.maxPrice ? ', up to ' + money(want.maxPrice) : ''}${want.city ? ' · ' + want.city : ''}`;
-  $('#inboxCares').innerHTML = '';
-  (want.careAbout || []).forEach((c) => { const li = document.createElement('li'); li.textContent = c; $('#inboxCares').append(li); });
-
-  const banner = $('#banner');
-  banner.hidden = true; banner.className = 'banner';
-  if (q.get('paid')) { banner.hidden = false; banner.classList.add('ok'); banner.innerHTML = '<svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11"/><path d="M7 12.5l3.2 3.2L17 9"/></svg><span><b>It’s yours.</b> Paid with PayPal, and the seller has been told.</span>'; }
-  else if (q.get('late')) { banner.hidden = false; banner.classList.add('bad'); banner.textContent = 'Someone paid a moment earlier, so this one is gone. You were not charged.'; }
-  else if (q.get('error')) { banner.hidden = false; banner.classList.add('bad'); banner.textContent = q.get('error'); }
-
-  const ol = $('#offers');
-  ol.innerHTML = '';
-  if (!offers.length) ol.innerHTML = '<li class="empty-note">Nothing yet. When someone sells what you’re looking for, it lands here.</li>';
-  for (const o of offers) {
-    const li = $('#tplOffer').content.firstElementChild.cloneNode(true);
-    $('.o-img', li).src = o.photo;
-    $('.o-title', li).textContent = o.item.title;
-    $('.o-price', li).textContent = money(o.item.price);
-    $('.o-msg', li).textContent = o.message;
-    for (const c of o.checks || []) {
-      const s = c.status === 'ok' ? '✓' : c.status === 'warn' ? '!' : '?';
-      const it = document.createElement('li'); it.className = c.status;
-      it.innerHTML = `<span class="s"></span><span><span class="n"></span><small></small></span>`;
-      $('.s', it).textContent = s; $('.n', it).textContent = c.need; $('small', it).textContent = c.note || '';
-      $('.o-checks', li).append(it);
-    }
-    const facts = $('.o-facts', li);
-    const add = (t, cls) => { const it = document.createElement('li'); it.textContent = t; if (cls) it.className = cls; facts.append(it); };
-    add('Condition: ' + o.item.condition);
-    (o.item.facts || []).forEach((f) => add(f));
-    (o.item.flaws || []).forEach((f) => add('Flaw: ' + f, 'flaw'));
-    if (o.item.handover && o.item.handover !== 'unknown') add('Handover: ' + o.item.handover);
-    if (o.sellerDetails) add('Seller: “' + o.sellerDetails + '”');
-    const fit = $('.o-fit', li);
-    if (o.status === 'open' && o.score) { $('.o-fitn', li).textContent = o.score + '% fit for you'; requestAnimationFrame(() => requestAnimationFrame(() => $('.meter i', fit).style.setProperty('--v', o.score + '%'))); }
-    else fit.hidden = true;
-    const act = $('.o-act', li);
-    if (o.status === 'open' && o.payUrl) act.innerHTML = `<a class="pp" href="${o.payUrl}"><span>Pay ${money(o.item.price)} with</span>${ppLogo}</a><span class="tag">First to pay gets it</span>`;
-    else if (o.status === 'yours') { act.innerHTML = '<span class="chip ok">Bought</span><span class="tag">Paid with PayPal</span>'; li.classList.add('won'); }
-    else { act.innerHTML = '<span class="chip gone">Sold</span><span class="tag">Someone else was faster. You were not charged.</span>'; li.classList.add('gone'); }
-    ol.append(li);
+// ---------- item ----------
+async function openItem(lid) {
+  let l;
+  try { l = await api(`/api/listings/${lid}?userId=${me.id}`); }
+  catch (err) { toast(err.message); location.hash = 'browse'; return; }
+  $('#iImg').src = l.photo || '';
+  $('#iTitle').textContent = l.title;
+  $('#iPrice').textContent = money(l.price, l.currency);
+  const st = $('#iState');
+  st.hidden = l.status === 'open'; st.textContent = 'Sold';
+  const s = l.seller;
+  $('#iSeller').innerHTML = `<span class="av"></span><span class="who"><b>${esc(s.name)}</b><small>${s.stars ? STAR + ' ' + s.stars + ' · ' : ''}${s.sold} sold${s.reviews ? ' · ' + s.reviews + ' reviews' : ''}</small></span>`;
+  avatar($('.av', $('#iSeller')), s.name);
+  $('#iDesc').textContent = l.description;
+  $('#iSeen').innerHTML = l.facts.length ? '<em>AI saw in the photo:</em>' + l.facts.map((f) => `<span>${esc(f)}</span>`).join('') : '';
+  $('#iCountry').textContent = `Only for buyers in ${meta.countries[l.country].name}. Ships or hands over inside the country.`;
+  const box = $('#iBuy');
+  box.innerHTML = '';
+  if (l.status === 'sold') {
+    if (l.boughtByMe) { box.innerHTML = '<p class="note">You bought this.</p><div class="rate"></div>'; rateForm($('.rate', box), l, 'buyer', s.name); }
+    else if (l.mine) { box.innerHTML = `<p class="note">Sold to ${esc(l.buyer.name)}.</p><div class="rate"></div>`; rateForm($('.rate', box), l, 'seller', l.buyer.name); }
+    else box.innerHTML = '<p class="note">Someone was faster. This is sold.</p>';
+  } else if (l.mine) {
+    box.innerHTML = '<p class="note">This is yours. It is up for sale.</p><button class="secondary danger">Delete</button>';
+    $('button', box).onclick = async () => { await api(`/api/listings/${l.id}`, { method: 'DELETE' }); toast('Deleted.'); location.hash = 'me'; };
+  } else {
+    box.innerHTML = `<label class="check"><input type="checkbox" id="readIt"><span><b>I read the description</b><small>Buying is instant. What it says is what you get.</small></span></label>
+      <button class="pp" id="payPP" disabled>${PP}</button>${meta.sandbox ? '<button class="card-pay" id="payCard" disabled>Sandbox: pay with PayPal test card</button>' : ''}<p class="err" id="payErr"></p>`;
+    $('.amt', box).textContent = money(l.price, l.currency);
+    $('#readIt').onchange = (e) => { $('#payPP').disabled = !e.target.checked; if ($('#payCard')) $('#payCard').disabled = !e.target.checked; };
+    const pay = async (method) => {
+      $('#payErr').textContent = '';
+      $('#payPP').disabled = true; if ($('#payCard')) $('#payCard').disabled = true;
+      try {
+        const out = await api(`/api/listings/${l.id}/pay`, { method: 'POST', json: { readDescription: $('#readIt').checked, method } });
+        if (out.payUrl) location.href = out.payUrl;
+        else location.hash = 'paid/' + l.id;
+      } catch (err) { $('#payErr').textContent = err.message; $('#payPP').disabled = false; if ($('#payCard')) $('#payCard').disabled = false; }
+    };
+    $('#payPP').onclick = () => pay('paypal');
+    if ($('#payCard')) $('#payCard').onclick = () => pay('card');
   }
+  show('item');
 }
 
-route();
+// ---------- paid + reviews ----------
+async function openPaid(lid) {
+  const l = await api(`/api/listings/${lid}?userId=${me.id}`).catch(() => null);
+  if (!l || !l.boughtByMe) { location.hash = 'home'; return; }
+  $('#paidSub').textContent = `${money(l.price, l.currency)} paid with PayPal to ${l.seller.name}.`;
+  $('#paidImg').src = l.photo; $('#paidTitle').textContent = l.title; $('#paidPrice').textContent = 'From ' + l.seller.name;
+  rateForm($('#paidRate'), l, 'buyer', l.seller.name);
+  show('paid');
+}
+// side = which side I am on this deal; I rate the other person.
+function rateForm(box, l, side, other) {
+  const done = l.reviews?.[side];
+  if (done) { box.innerHTML = `<b>You gave ${esc(other)} ${done.stars} ${done.stars === 1 ? 'star' : 'stars'}.</b>${done.text ? `<p class="sub">“${esc(done.text)}”</p>` : ''}`; return; }
+  box.innerHTML = `<b>How was ${esc(other)}?</b><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" aria-label="${n} stars">${STAR.replace('class="star"', '')}</button>`).join('')}</div>
+    <input maxlength="200" placeholder="A few words (optional)"><button class="primary" disabled>Send review</button><p class="fine">Only the buyer and the seller of a deal can review it. No fake reviews.</p>`;
+  let stars = 0;
+  $$('.stars button', box).forEach((b) => (b.onclick = () => { stars = +b.dataset.n; $$('.stars button', box).forEach((x) => x.classList.toggle('on', +x.dataset.n <= stars)); $('.primary', box).disabled = false; }));
+  $('.primary', box).onclick = async () => {
+    try {
+      const nl = await api(`/api/listings/${l.id}/review`, { method: 'POST', json: { stars, text: $('input', box).value } });
+      rateForm(box, nl, side, other);
+      toast('Thanks. It counts on the leaderboard.');
+      refreshBadge();
+    } catch (err) { toast(err.message); }
+  };
+}
+
+// ---------- my stuff ----------
+const SEARCH = '<span class="ph"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></span>';
+async function openMe() {
+  const d = await api('/api/me').catch(() => null);
+  if (!d) return;
+  avatar($('#mAv'), d.user.name);
+  $('#mName').textContent = d.user.name;
+  $('#mStats').innerHTML = `${esc(meta.countries[d.user.country].name)} · ${d.user.sold} sold · ${d.user.bought} bought${d.user.stars ? ` · ${STAR} ${d.user.stars}` : ''}`;
+  $('#mSell').innerHTML = d.mine.length ? d.mine.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)}${l.status === 'sold' ? ' · sold to ' + esc(l.buyer.name) : ''}</small></a>
+    <span class="act">${l.status === 'sold' ? (l.reviews?.seller ? '<span class="tag ok">Done</span>' : `<a class="tag blue" href="#item/${l.id}">Rate ${esc(l.buyer.name)}</a>`) : `<span class="tag">For sale</span><button class="danger" data-del="${l.id}">Delete</button>`}</span></li>`).join('')
+    : '<li class="none">Nothing yet. <a href="#sell"><u>Sell something</u></a></li>';
+  $('#mLook').innerHTML = d.looking.length ? d.looking.map((w) => `<li>${SEARCH}<span class="t"><b>${esc(w.what)}</b><small>${money(w.minPrice)} to ${money(w.maxPrice)} · ${esc(w.category)}</small>${w.found.length ? `<span class="found">${w.found.map((f) => `<a href="#item/${f.listing.id}"><img src="${esc(f.listing.photo)}" alt="${esc(f.listing.title)}"></a>`).join('')}</span>` : ''}</span>
+    <span class="act">${w.found.length ? `<span class="tag blue">${w.found.length} found</span>` : '<span class="tag">Looking</span>'}<button class="danger" data-delw="${w.id}">Delete</button></span></li>`).join('')
+    : '<li class="none">Nothing yet. <a href="#buy"><u>Say what you want</u></a></li>';
+  $('#mBought').innerHTML = d.bought.length ? d.bought.map((l) => `<li><a href="#item/${l.id}"><img src="${esc(l.photo)}" alt=""></a><a class="t" href="#item/${l.id}"><b>${esc(l.title)}</b><small>${money(l.price, l.currency)} · from ${esc(l.seller.name)}</small></a>
+    <span class="act">${l.reviews?.buyer ? '<span class="tag ok">Done</span>' : `<a class="tag blue" href="#item/${l.id}">Rate ${esc(l.seller.name)}</a>`}</span></li>`).join('')
+    : '<li class="none">Nothing yet.</li>';
+  $$('[data-del]').forEach((b) => (b.onclick = async () => { await api(`/api/listings/${b.dataset.del}`, { method: 'DELETE' }); toast('Deleted.'); openMe(); }));
+  $$('[data-delw]').forEach((b) => (b.onclick = async () => { await api(`/api/wants/${b.dataset.delw}`, { method: 'DELETE' }); toast('Deleted.'); openMe(); }));
+  show('me');
+}
+
+// ---------- leaderboard ----------
+let boardBy = 'sellers';
+$$('.seg button').forEach((b) => (b.onclick = () => { boardBy = b.dataset.by; $$('.seg button').forEach((x) => x.classList.toggle('on', x === b)); openBoard(); }));
+async function openBoard() {
+  show('board');
+  const rows = await api(`/api/leaderboard?country=${me.country}&by=${boardBy}`).catch(() => []);
+  const key = boardBy === 'sellers' ? 'sold' : 'bought';
+  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><span class="n">${i + 1}</span><span class="av">${esc(u.name[0])}</span>
+    <span class="t"><b>${esc(u.name)}</b><small>${u.sold} sold · ${u.bought} bought</small></span>
+    <span class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</span></li>`).join('')
+    : '<li style="display:block;color:var(--faint)">No deals in your country yet.</li>';
+}
+
+// ---------- start ----------
+(async () => {
+  meta = await api('/api/meta');
+  $('#countrySel').innerHTML = '<option value="" disabled selected>Choose</option>' + Object.entries(meta.countries).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+  chips($('#sCats'), { onPick: checkSell });
+  chips($('#wCats'), { onPick: checkBuy });
+  chips($('#bCats'), { all: true, onPick: (c) => { browseCat = c; openBrowse(); } });
+  // back from PayPal
+  const q = new URLSearchParams(location.search);
+  if (q.has('paid') || q.has('item')) {
+    const h = q.has('paid') ? 'paid/' + q.get('paid') : 'item/' + q.get('item');
+    if (q.get('late')) setTimeout(() => toast('Someone was faster. You were not charged.'), 300);
+    if (q.get('error')) setTimeout(() => toast(q.get('error')), 300);
+    history.replaceState(null, '', '/#' + h);
+  }
+  if (me && !meta.countries[me.country]) me = null;
+  if (me) {
+    try { me = await api('/api/signin', { method: 'POST', json: { name: me.name, country: me.country } }); localStorage.setItem('homing.user', JSON.stringify(me)); }
+    catch { me = null; }
+  }
+  if (me) setupForUser();
+  route();
+})();

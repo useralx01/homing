@@ -1,0 +1,677 @@
+[
+  {
+    "id": "l_chair",
+    "sellerId": "u_lena",
+    "country": "DE",
+    "photo": "/photos/chair.jpg",
+    "title": "Wooden chair, dark wood",
+    "category": "Furniture",
+    "price": 45,
+    "description": "Solid wood dining chair, dark finish. Sturdy, no wobble. Light scratches on the seat edge, see photo. Pickup in Stuttgart or I ship it.",
+    "facts": [],
+    "status": "open",
+    "at": 1794373200000
+  },
+  {
+    "id": "l_bike",
+    "sellerId": "u_jonas",
+    "country": "DE",
+    "photo": "/photos/bike.jpg",
+    "title": "Red city bike, 28 inch",
+    "category": "Bikes & sport",
+    "price": 180,
+    "description": "Red ladies city bike, 28 inch wheels, 3 gears, basket rack. Tyres new in spring. Brakes work well. Small rust spot on the bell. Frame fits 160 to 175 cm.",
+    "facts": [],
+    "status": "open",
+    "at": 1794362400000
+  },
+  {
+    "id": "l_backpack",
+    "sellerId": "u_mia",
+    "country": "DE",
+    "photo": "/photos/backpack.jpg",
+    "title": "Flower backpack with pencil case",
+    "category": "Fashion",
+    "price": 15,
+    "description": "Light blue school backpack with flower print and the matching pencil case. Used one school year, clean, all zips work. No stains.",
+    "facts": [],
+    "status": "open",
+    "at": 1794351600000
+  },
+  {
+    "id": "l_teapot",
+    "sellerId": "u_mia",
+    "country": "DE",
+    "photo": "/photos/teapot.jpg",
+    "title": "Black ceramic teapot",
+    "category": "Home & kitchen",
+    "price": 20,
+    "description": "Black glazed teapot with red rim, about 1 litre. No chips or cracks, lid fits tight. Washed and ready.",
+    "facts": [],
+    "status": "open",
+    "at": 1794340800000
+  },
+  {
+    "id": "l_guitar",
+    "sellerId": "u_paul",
+    "country": "DE",
+    "photo": "/photos/guitar.jpg",
+    "title": "Acoustic guitar, full size",
+    "category": "Music",
+    "price": 90,
+    "description": "Full size steel string acoustic guitar. Plays well, strings changed last month. Some wear marks on the body (see photo), nothing structural. No case included.",
+    "facts": [],
+    "status": "open",
+    "at": 1794330000000
+  },
+  {
+    "id": "l_armchair",
+    "sellerId": "u_lena",
+    "country": "DE",
+    "photo": "/photos/armchair.jpg",
+    "title": "Rush seat armchair, black",
+    "category": "Furniture",
+    "price": 60,
+    "description": "Old black wooden armchair with woven rush seat. Seat is intact, frame is solid. Paint is worn on the arms, which I think looks nice. Pickup only, Stuttgart.",
+    "facts": [],
+    "status": "open",
+    "at": 1794319200000
+  },
+  {
+    "id": "l_plant",
+    "sellerId": "u_sara",
+    "country": "DE",
+    "photo": "/photos/plant.jpg",
+    "title": "Plant in white pot",
+    "category": "Plants",
+    "price": 12,
+    "description": "Healthy flowering plant in a white ceramic pot, about 30 cm tall. Pot has no cracks. Pickup in Berlin, or I ship in a box.",
+    "facts": [],
+    "status": "open",
+    "at": 1794308400000
+  },
+  {
+    "id": "l_recordplayer",
+    "sellerId": "u_paul",
+    "country": "DE",
+    "photo": "/photos/record-player.jpg",
+    "title": "Old record player",
+    "category": "Electronics",
+    "price": 120,
+    "description": "Vintage wind-up record player. Turns and plays 78 rpm records, sound is loud and clear. Needle replaced. Some scratches on the wood. One record included.",
+    "facts": [],
+    "status": "open",
+    "at": 1794297600000
+  },
+  {
+    "id": "l_skis",
+    "sellerId": "u_anna",
+    "country": "AT",
+    "photo": null,
+    "title": "Kids skis 120 cm",
+    "category": "Bikes & sport",
+    "price": 40,
+    "description": "Kids skis with bindings, 120 cm. Two seasons used.",
+    "facts": [],
+    "status": "open",
+    "at": 1794297600000
+  },
+  {
+    "id": "l_past1",
+    "sellerId": "u_lena",
+    "buyerId": "u_mara",
+    "country": "DE",
+    "photo": null,
+    "title": "Bookshelf, white",
+    "category": "Furniture",
+    "price": 35,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1790928000000,
+    "soldAt": 1790928180000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Exactly like the photo, super quick.",
+        "at": 1791014400000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Paid instantly, picked up on time.",
+        "at": 1791014400000
+      }
+    }
+  },
+  {
+    "id": "l_past2",
+    "sellerId": "u_lena",
+    "buyerId": "u_kai",
+    "country": "DE",
+    "photo": null,
+    "title": "Floor lamp",
+    "category": "Home & kitchen",
+    "price": 25,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1791100800000,
+    "soldAt": 1791100980000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Works perfectly. Thanks Lena!",
+        "at": 1791187200000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Easy buyer.",
+        "at": 1791187200000
+      }
+    }
+  },
+  {
+    "id": "l_past3",
+    "sellerId": "u_lena",
+    "buyerId": "u_tim",
+    "country": "DE",
+    "photo": null,
+    "title": "Side table",
+    "category": "Furniture",
+    "price": 20,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1791273600000,
+    "soldAt": 1791273780000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 4,
+        "text": "Small scratch she mentioned, all fair.",
+        "at": 1791360000000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Smooth.",
+        "at": 1791360000000
+      }
+    }
+  },
+  {
+    "id": "l_past4",
+    "sellerId": "u_lena",
+    "buyerId": "u_emma",
+    "country": "DE",
+    "photo": null,
+    "title": "Mirror, round",
+    "category": "Home & kitchen",
+    "price": 30,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1791446400000,
+    "soldAt": 1791446580000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Lovely, well packed.",
+        "at": 1791532800000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Thank you!",
+        "at": 1791532800000
+      }
+    }
+  },
+  {
+    "id": "l_past5",
+    "sellerId": "u_lena",
+    "buyerId": "u_ben",
+    "country": "DE",
+    "photo": null,
+    "title": "Desk chair",
+    "category": "Furniture",
+    "price": 40,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1791619200000,
+    "soldAt": 1791619380000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Great chair.",
+        "at": 1791705600000
+      },
+      "seller": {
+        "stars": 4,
+        "text": "Came a bit late but fine.",
+        "at": 1791705600000
+      }
+    }
+  },
+  {
+    "id": "l_past6",
+    "sellerId": "u_jonas",
+    "buyerId": "u_tim",
+    "country": "DE",
+    "photo": null,
+    "title": "Bike helmet",
+    "category": "Bikes & sport",
+    "price": 18,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1791792000000,
+    "soldAt": 1791792180000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "As described.",
+        "at": 1791878400000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Fast payment.",
+        "at": 1791878400000
+      }
+    }
+  },
+  {
+    "id": "l_past7",
+    "sellerId": "u_jonas",
+    "buyerId": "u_noah",
+    "country": "DE",
+    "photo": null,
+    "title": "Bike lights set",
+    "category": "Bikes & sport",
+    "price": 12,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1791964800000,
+    "soldAt": 1791964980000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 4,
+        "text": "Good, one strap was missing but he said so.",
+        "at": 1792051200000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Nice.",
+        "at": 1792051200000
+      }
+    }
+  },
+  {
+    "id": "l_past8",
+    "sellerId": "u_jonas",
+    "buyerId": "u_kai",
+    "country": "DE",
+    "photo": null,
+    "title": "Pump",
+    "category": "Bikes & sport",
+    "price": 10,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1792137600000,
+    "soldAt": 1792137780000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Perfect.",
+        "at": 1792224000000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "All good.",
+        "at": 1792224000000
+      }
+    }
+  },
+  {
+    "id": "l_past9",
+    "sellerId": "u_mia",
+    "buyerId": "u_nina",
+    "country": "DE",
+    "photo": null,
+    "title": "Winter jacket",
+    "category": "Fashion",
+    "price": 30,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1792310400000,
+    "soldAt": 1792310580000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Like new, thank you!",
+        "at": 1792396800000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Super nice buyer.",
+        "at": 1792396800000
+      }
+    }
+  },
+  {
+    "id": "l_past10",
+    "sellerId": "u_mia",
+    "buyerId": "u_emma",
+    "country": "DE",
+    "photo": null,
+    "title": "Scarf",
+    "category": "Fashion",
+    "price": 8,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1792483200000,
+    "soldAt": 1792483380000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 3,
+        "text": "Colour was a bit different than the photo.",
+        "at": 1792569600000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Thanks!",
+        "at": 1792569600000
+      }
+    }
+  },
+  {
+    "id": "l_past11",
+    "sellerId": "u_paul",
+    "buyerId": "u_ben",
+    "country": "DE",
+    "photo": null,
+    "title": "Headphones",
+    "category": "Electronics",
+    "price": 45,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1792656000000,
+    "soldAt": 1792656180000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Sound is great.",
+        "at": 1792742400000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Paid in seconds.",
+        "at": 1792742400000
+      }
+    }
+  },
+  {
+    "id": "l_past12",
+    "sellerId": "u_paul",
+    "buyerId": "u_mara",
+    "country": "DE",
+    "photo": null,
+    "title": "Speaker",
+    "category": "Electronics",
+    "price": 55,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1792828800000,
+    "soldAt": 1792828980000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 4,
+        "text": "Good speaker, cable was short.",
+        "at": 1792915200000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Great.",
+        "at": 1792915200000
+      }
+    }
+  },
+  {
+    "id": "l_past13",
+    "sellerId": "u_paul",
+    "buyerId": "u_noah",
+    "country": "DE",
+    "photo": null,
+    "title": "Keyboard",
+    "category": "Electronics",
+    "price": 35,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1793001600000,
+    "soldAt": 1793001780000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Exactly as said.",
+        "at": 1793088000000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Thanks Noah.",
+        "at": 1793088000000
+      }
+    }
+  },
+  {
+    "id": "l_past14",
+    "sellerId": "u_sara",
+    "buyerId": "u_mara",
+    "country": "DE",
+    "photo": null,
+    "title": "Cactus set",
+    "category": "Plants",
+    "price": 15,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1793174400000,
+    "soldAt": 1793174580000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Healthy plants, well packed.",
+        "at": 1793260800000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Lovely.",
+        "at": 1793260800000
+      }
+    }
+  },
+  {
+    "id": "l_past15",
+    "sellerId": "u_sara",
+    "buyerId": "u_kai",
+    "country": "DE",
+    "photo": null,
+    "title": "Herb pots",
+    "category": "Plants",
+    "price": 9,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1793347200000,
+    "soldAt": 1793347380000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Great!",
+        "at": 1793433600000
+      },
+      "seller": {
+        "stars": 4,
+        "text": "Fine.",
+        "at": 1793433600000
+      }
+    }
+  },
+  {
+    "id": "l_past16",
+    "sellerId": "u_noah",
+    "buyerId": "u_ben",
+    "country": "DE",
+    "photo": null,
+    "title": "Game console dock",
+    "category": "Electronics",
+    "price": 25,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1793520000000,
+    "soldAt": 1793520180000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 4,
+        "text": "Works, box missing.",
+        "at": 1793606400000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Fast.",
+        "at": 1793606400000
+      }
+    }
+  },
+  {
+    "id": "l_past17",
+    "sellerId": "u_emma",
+    "buyerId": "u_nina",
+    "country": "DE",
+    "photo": null,
+    "title": "Coffee mugs (4)",
+    "category": "Home & kitchen",
+    "price": 12,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1793692800000,
+    "soldAt": 1793692980000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 5,
+        "text": "Cute mugs!",
+        "at": 1793779200000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Thank you.",
+        "at": 1793779200000
+      }
+    }
+  },
+  {
+    "id": "l_past18",
+    "sellerId": "u_kai",
+    "buyerId": "u_tim",
+    "country": "DE",
+    "photo": null,
+    "title": "Tennis racket",
+    "category": "Bikes & sport",
+    "price": 22,
+    "description": "",
+    "facts": [],
+    "status": "sold",
+    "at": 1793865600000,
+    "soldAt": 1793865780000,
+    "capture": {
+      "id": "SEED",
+      "status": "COMPLETED"
+    },
+    "reviews": {
+      "buyer": {
+        "stars": 2,
+        "text": "Grip was more worn than described.",
+        "at": 1793952000000
+      },
+      "seller": {
+        "stars": 5,
+        "text": "Fine.",
+        "at": 1793952000000
+      }
+    }
+  }
+]
