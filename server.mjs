@@ -368,6 +368,12 @@ app.post('/api/listings/:id/review', (q, s) => {
   s.json(full(l, u.id));
 });
 
+// Live numbers for the home screen.
+app.get('/api/pulse', (q, s) => {
+  const c = String(q.query.country || '');
+  s.json({ forSale: listings.filter((l) => l.status === 'open' && l.country === c && l.photo).length, looking: wants.filter((w) => w.status === 'open' && w.country === c).length });
+});
+
 // A person's page: their numbers, what they sell, and every review from a real deal.
 app.get('/api/users/:id', (q, s) => {
   const u = userOf(q.params.id);

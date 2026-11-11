@@ -37,6 +37,8 @@ const show = (name) => {
   $$('.screen').forEach((s) => (s.hidden = s.dataset.screen !== name));
   $('#top').hidden = name === 'signin';
   $('#back').classList.toggle('off', name === 'home');
+  $('#top').classList.toggle('at-home', name === 'home');
+  $('#sheet').hidden = true; document.body.classList.remove('locked');
   window.scrollTo(0, 0);
 };
 let depth = 0;
@@ -89,6 +91,7 @@ function setupForUser() {
 // ---------- home ----------
 function openHome() {
   $('#hello').textContent = `Hi ${me.name}.`;
+  api(`/api/pulse?country=${me.country}`).then((p) => { $('#pulseTxt').innerHTML = `<b>${p.forSale}</b> for sale · <b>${p.looking}</b> people looking in ${esc(meta.countries[me.country].name)}`; $('#pulse').hidden = false; }).catch(() => {});
   show('home');
 }
 async function refreshBadge() {
@@ -293,6 +296,8 @@ function fillGrid(ul, items) {
 let browseCat = '';
 async function openBrowse() {
   show('browse');
+  if (!$('#grid').children.length || $('#grid').dataset.cat !== browseCat) $('#grid').innerHTML = '<li><span class="gcard sk"></span></li>'.repeat(6);
+  $('#grid').dataset.cat = browseCat;
   const items = await api(`/api/listings?country=${me.country}&category=${encodeURIComponent(browseCat)}`).catch(() => []);
   fillGrid($('#grid'), items);
   $('#bCount').textContent = items.length ? items.length + ' for sale' : '';
@@ -320,6 +325,7 @@ async function openItem(lid) {
   $('#iCountry').textContent = `Only for buyers in ${meta.countries[l.country].name}. Ships or hands over inside the country.`;
   const box = $('#iBuy');
   box.innerHTML = '';
+  $('#iBar').hidden = true;
   if (l.status === 'sold') {
     if (l.boughtByMe) { box.innerHTML = '<p class="note">You bought this.</p><div class="rate"></div>'; rateForm($('.rate', box), l, 'buyer', s.name); }
     else if (l.mine) { box.innerHTML = `<p class="note">Sold to ${esc(l.buyer.name)}.</p><div class="rate"></div>`; rateForm($('.rate', box), l, 'seller', l.buyer.name); }
@@ -328,9 +334,12 @@ async function openItem(lid) {
     box.innerHTML = '<p class="note">This is yours. It is up for sale.</p><button class="secondary danger">Delete</button>';
     $('button', box).onclick = async () => { await api(`/api/listings/${l.id}`, { method: 'DELETE' }); toast('Deleted.'); location.hash = 'me'; };
   } else {
-    box.innerHTML = `<label class="check"><input type="checkbox" id="readIt"><span><b>I read the description</b><small>Buying is instant. What it says is what you get.</small></span></label>
+    $('#iBar').hidden = false; $('#iBarT').textContent = l.title; $('#iBarP').textContent = money(l.price, l.currency);
+    $('#iBarBtn').onclick = () => openSheet();
+    const sb = $('#sheetBody');
+    sb.innerHTML = `<div class="sh-item"><img src="${esc(l.photo)}" alt=""><div><b>${esc(l.title)}</b><span>${money(l.price, l.currency)} · from ${esc(s.name)}</span></div></div><label class="check"><input type="checkbox" id="readIt"><span><b>I read the description</b><small>Buying is instant. What it says is what you get.</small></span></label>
       <button class="pp" id="payPP" disabled>${PP}</button>${meta.sandbox ? '<button class="card-pay" id="payCard" disabled>Sandbox: pay with PayPal test card</button>' : ''}<p class="err" id="payErr"></p>`;
-    $('.amt', box).textContent = money(l.price, l.currency);
+    $('.amt', sb).textContent = money(l.price, l.currency);
     $('#readIt').onchange = (e) => { $('#payPP').disabled = !e.target.checked; if ($('#payCard')) $('#payCard').disabled = !e.target.checked; };
     const pay = async (method) => {
       $('#payErr').textContent = '';
@@ -401,9 +410,12 @@ let boardBy = 'sellers';
 $$('.seg button').forEach((b) => (b.onclick = () => { boardBy = b.dataset.by; $$('.seg button').forEach((x) => x.classList.toggle('on', x === b)); $('#seg').classList.toggle('right', boardBy === 'buyers'); openBoard(); }));
 async function openBoard() {
   show('board');
-  const rows = await api(`/api/leaderboard?country=${me.country}&by=${boardBy}`).catch(() => []);
+  let rows = await api(`/api/leaderboard?country=${me.country}&by=${boardBy}`).catch(() => []);
   const key = boardBy === 'sellers' ? 'sold' : 'bought';
-  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${u.id}"><span class="n">${i + 1}</span>${av(u.name)}
+  const top = rows.length >= 3 ? rows.slice(0, 3) : [];
+  $('#podium').innerHTML = top.length ? [1, 0, 2].map((i) => { const u = top[i]; return `<a class="pod p${i + 1}" href="#user/${u.id}">${av(u.name, i ? 'lg' : 'xl')}<span class="medal">${i + 1}</span><b>${esc(u.name)}</b><small>${u[key]} ${key}</small><span class="ps">${u.stars ? STAR + u.stars.toFixed(1) : ''}</span></a>`; }).join('') : '';
+  rows = rows.slice(top.length);
+  $('#rank').innerHTML = rows.length ? rows.map((u, i) => `<li class="${u.id === me.id ? 'you' : ''}" style="animation-delay:${i * 35}ms"><a href="#user/${u.id}"><span class="n">${i + 1 + top.length}</span>${av(u.name)}
     <span class="t"><b>${esc(u.name)}</b><small>${u.sold} sold · ${u.bought} bought</small></span>
     <span class="s">${u.stars ? STAR + u.stars.toFixed(1) : '<small>No reviews</small>'}</span>${CHEV}</a></li>`).join('')
     : '<li style="display:block;color:var(--faint)">No deals in your country yet.</li>';
@@ -451,3 +463,9 @@ async function openUser(uid) {
     : '<li style="color:var(--faint)">No reviews yet.</li>';
   show('user');
 }
+
+// ---------- buy sheet ----------
+function openSheet() { $('#sheet').hidden = false; document.body.classList.add('locked'); requestAnimationFrame(() => $('#sheet').classList.add('open')); }
+function closeSheet() { $('#sheet').classList.remove('open'); document.body.classList.remove('locked'); setTimeout(() => ($('#sheet').hidden = true), 280); }
+$('#sheetBg').onclick = closeSheet;
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
