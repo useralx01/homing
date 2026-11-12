@@ -7,7 +7,7 @@ Snap what you sell. AI checks the photo and hands it to people who are already l
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/).
 
 Live demo: https://useralx01.github.io/homing/ (PayPal sandbox)
-Demo video: LINK
+Demo video: https://useralx01.github.io/homing/video.html
 
 ## What it is
 
