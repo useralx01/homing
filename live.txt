@@ -1,1 +1,1 @@
-https://headers-sub-mileage-plc.trycloudflare.com
+https://api-atlas-spectrum-modern.trycloudflare.com
