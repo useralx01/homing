@@ -1,1 +1,1 @@
-https://lobby-crafts-enrollment-precious.trycloudflare.com
+https://api.trycloudflare.com
