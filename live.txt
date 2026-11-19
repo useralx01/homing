@@ -1,1 +1,1 @@
-https://handled-patient-huntington-relating.trycloudflare.com
+https://api.trycloudflare.com
