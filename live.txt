@@ -1,1 +1,1 @@
-https://heard-healthy-languages-elderly.trycloudflare.com
+https://api.trycloudflare.com
