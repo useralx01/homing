@@ -1,1 +1,1 @@
-https://holly-cart-sec-frequently.trycloudflare.com
+https://api.trycloudflare.com
